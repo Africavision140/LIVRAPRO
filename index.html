@@ -1283,8 +1283,14 @@ tbody tr:hover{background:#F8FAFC}
         () => window.prompt('Copiez ce lien :', url));
     } else window.prompt('Copiez ce lien :', url);
   }
-  /* Clé de suivi compacte : LP-260907-005 → 260907005 */
-  const refKey = r => norm(r).replace(/[^a-z0-9]/g, '').replace(/^lp/, '');
+  /* Clé de suivi compacte : LP-260907-005 → 260907005.
+     Accepte aussi un lien entier collé dans le champ de recherche. */
+  function refKey(r) {
+    let t = String(r == null ? '' : r).trim();
+    if (t.indexOf('#') !== -1) t = t.slice(t.lastIndexOf('#') + 1);
+    else if (/ref=/i.test(t)) t = t.replace(/^.*ref=/i, '');
+    return norm(t).replace(/[^a-z0-9]/g, '').replace(/^lp/, '');
+  }
   const trackLink = ref => LOC.root + 's.html#' + refKey(ref);
   const portalLink = () => LOC.root + 'boutique.html';
   const agencyLink = () => LOC.root;
