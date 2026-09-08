@@ -31,7 +31,9 @@ body{
   font-family:var(--ui); background:var(--paper); color:var(--txt);
   font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased;
 }
-button,input,select,textarea{font:inherit;color:inherit}
+button{font:inherit;color:inherit}
+input,select,textarea{font:inherit;color:var(--txt)}
+input::placeholder{color:var(--txt-3);opacity:1}
 button{cursor:pointer;background:none;border:none}
 table{border-collapse:collapse;width:100%}
 :focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:4px}
@@ -293,7 +295,7 @@ tbody tr:hover{background:#F8FAFC}
 .client-hero h2{font-size:20px;letter-spacing:-.3px}
 .client-hero p{color:#A9C1D4;font-size:14px;margin-top:5px}
 .client-search{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
-.client-search input{flex:1;min-width:200px;border-color:transparent}
+.client-search input{flex:1;min-width:200px;border-color:transparent;background:#fff;color:var(--txt)}
 .client-result{margin-top:16px}
 .client-tabs{display:flex;gap:6px;margin:18px 0 12px}
 .tab-btn{padding:8px 14px;border-radius:20px;font-size:13.5px;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--txt-2)}
@@ -1002,7 +1004,7 @@ tbody tr:hover{background:#F8FAFC}
     let dir = location.pathname.replace(/[^/]*$/, '');   // se termine par /
     let folder = null;
     if (/^boutique\.html?$/i.test(file)) folder = 'boutique';
-    else if (/^suivi\.html?$/i.test(file)) folder = 'suivi';
+    else if (/^s(uivi)?\.html?$/i.test(file)) folder = 'suivi';
     else {
       const m = /\/(boutique|suivi)\/$/.exec(dir);      // variante en dossiers
       if (m) { folder = m[1]; dir = dir.slice(0, m.index + 1); }
@@ -1281,7 +1283,9 @@ tbody tr:hover{background:#F8FAFC}
         () => window.prompt('Copiez ce lien :', url));
     } else window.prompt('Copiez ce lien :', url);
   }
-  const trackLink = ref => LOC.root + 'suivi.html?ref=' + encodeURIComponent(ref);
+  /* Clé de suivi compacte : LP-260907-005 → 260907005 */
+  const refKey = r => norm(r).replace(/[^a-z0-9]/g, '').replace(/^lp/, '');
+  const trackLink = ref => LOC.root + 's.html#' + refKey(ref);
   const portalLink = () => LOC.root + 'boutique.html';
   const agencyLink = () => LOC.root;
 
@@ -1606,10 +1610,10 @@ tbody tr:hover{background:#F8FAFC}
       box.innerHTML = '<div class="panel"><div class="empty"><strong>Entrez une référence</strong>Elle figure dans le message reçu de l\u2019expéditeur.</div></div>';
       return;
     }
-    const nq = norm(q).replace(/\s/g,'');
+    const key = refKey(q);
     const digits = q.replace(/\D/g,'');
     const found = S.orders.filter(o =>
-      norm(o.ref).replace(/\s/g,'') === nq ||
+      refKey(o.ref) === key ||
       (digits.length >= 8 && String(o.phone).replace(/\D/g,'') === digits));
     box.innerHTML = found.length ? found.map(o => waybill(o, { hidePhone:true })).join('')
       : '<div class="panel"><div class="empty"><strong>Aucun colis à cette référence</strong>Vérifiez la référence, ou contactez l\u2019expéditeur du colis.</div></div>';
@@ -2164,10 +2168,15 @@ tbody tr:hover{background:#F8FAFC}
       $('#public').hidden = false;
       document.title = 'LivraPro — suivre mon colis';
       bindPublic();
-      const ref = P.get('ref');
+      const raw = P.get('ref') || decodeURIComponent(location.hash.slice(1));
+      const hit = raw ? S.orders.filter(o => refKey(o.ref) === refKey(raw))[0] : null;
+      const ref = hit ? hit.ref : raw;
       if (ref) { $('#pub-query').value = ref; }
       renderPublic(ref || '');
       await pull();
+      const q0 = $('#pub-query').value.trim();
+      const found = q0 ? S.orders.filter(o => refKey(o.ref) === refKey(q0))[0] : null;
+      if (found) $('#pub-query').value = found.ref;   // affiche la référence complète
       renderPublic($('#pub-query').value.trim());
       setInterval(async () => { await pull(); renderPublic($('#pub-query').value.trim()); }, 20000);
       return;
