@@ -1063,6 +1063,27 @@ tbody tr:hover{background:#F8FAFC}
     </div>
   </div>
 
+  <!-- ========== Badge livreur ========== -->
+  <div class="modal-overlay" id="badge-modal">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-header">
+        <h2 id="badge-modal-title">Badge</h2>
+        <button class="modal-close" data-close-modal>✕</button>
+      </div>
+      <div style="padding:18px">
+        <canvas id="badge-canvas" style="width:100%;height:auto;border-radius:10px;border:1px solid var(--line);display:block"></canvas>
+        <div class="link-actions">
+          <button class="btn btn-accent" id="badge-dl">⬇️ Télécharger PNG</button>
+          <button class="btn btn-ghost" id="badge-share" hidden>Partager…</button>
+          <button class="btn btn-ghost" id="badge-print">🖨️ Imprimer</button>
+        </div>
+        <p style="font-size:12.5px;color:var(--txt-2);margin-top:12px">
+          Image au format carte bancaire, 300 ppp. Le code d'accès n'y figure pas.
+        </p>
+      </div>
+    </div>
+  </div>
+
   <!-- ========== Partage d'un lien ========== -->
   <div class="modal-overlay" id="link-modal">
     <div class="modal" style="max-width:520px">
@@ -2037,6 +2058,125 @@ tbody tr:hover{background:#F8FAFC}
     setTimeout(() => { try { w.print(); } catch (e) {} }, 350);
   }
 
+  /* ---------- Badge en image (85,6 × 54 mm à 300 ppp) ---------- */
+  let badgeRider = null;
+  function loadImg(src) {
+    return new Promise(res => {
+      const i = new Image();
+      i.onload = () => res(i); i.onerror = () => res(null);
+      i.src = src;
+    });
+  }
+  function roundPath(x, l, t, w, h, r) {
+    x.beginPath();
+    if (x.roundRect) { x.roundRect(l, t, w, h, r); return; }
+    x.moveTo(l + r, t);
+    x.arcTo(l + w, t, l + w, t + h, r);
+    x.arcTo(l + w, t + h, l, t + h, r);
+    x.arcTo(l, t + h, l, t, r);
+    x.arcTo(l, t, l + w, t, r);
+    x.closePath();
+  }
+  function fitText(x, txt, max, start, weight) {
+    let size = start;
+    do {
+      x.font = weight + ' ' + size + 'px system-ui, "Segoe UI", Roboto, Arial, sans-serif';
+      if (x.measureText(txt).width <= max) break;
+      size -= 1;
+    } while (size > start * 0.55);
+    return size;
+  }
+  async function buildBadge(r) {
+    const K = 11.82, mm = v => v * K;                   // 300 ppp
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(mm(85.6)); cv.height = Math.round(mm(54));
+    const x = cv.getContext('2d');
+    if (!x) return cv;
+
+    x.fillStyle = '#FFFFFF';
+    roundPath(x, 0, 0, cv.width, cv.height, mm(4)); x.fill();
+    x.save(); roundPath(x, 0, 0, cv.width, cv.height, mm(4)); x.clip();
+
+    /* Bandeau */
+    x.fillStyle = '#0E2436'; x.fillRect(0, 0, cv.width, mm(10));
+    x.fillStyle = '#FFFFFF'; x.textBaseline = 'middle';
+    x.font = '800 ' + mm(4.4) + 'px system-ui, "Segoe UI", Roboto, Arial, sans-serif';
+    x.fillText('LIVRAPRO', mm(4), mm(5.2));
+    x.fillStyle = '#FFB000';
+    x.font = '700 ' + mm(2.8) + 'px system-ui, "Segoe UI", Roboto, Arial, sans-serif';
+    x.textAlign = 'right'; x.fillText('LIVREUR', cv.width - mm(4), mm(5.2)); x.textAlign = 'left';
+
+    /* Photo */
+    const px = mm(4), py = mm(13.5), pw = mm(24), ph = mm(30);
+    x.save(); roundPath(x, px, py, pw, ph, mm(2)); x.clip();
+    x.fillStyle = '#EEF2F6'; x.fillRect(px, py, pw, ph);
+    const img = r.photo ? await loadImg(r.photo) : null;
+    if (img) x.drawImage(img, px, py, pw, ph);
+    else {
+      x.fillStyle = '#8698A6'; x.textAlign = 'center';
+      x.font = '800 ' + mm(9) + 'px system-ui, Arial, sans-serif';
+      x.fillText(initials(r.name), px + pw/2, py + ph/2);
+      x.textAlign = 'left';
+    }
+    x.restore();
+
+    /* Nom et informations */
+    const cx = mm(31.5), cw = cv.width - cx - mm(4);
+    x.fillStyle = '#12242F';
+    const ns = fitText(x, r.name, cw, mm(5), '800');
+    x.font = '800 ' + ns + 'px system-ui, "Segoe UI", Roboto, Arial, sans-serif';
+    x.fillText(r.name, cx, mm(16.5));
+
+    const rows = [
+      ['TELEPHONE', r.phone || '—', false],
+      ['VEHICULE', (r.vehicle || '—') + (r.plate ? '  ·  ' + r.plate : ''), false],
+      ['MATRICULE', String(r.token || '').slice(0, 6).toUpperCase() || '—', true]
+    ];
+    let y = mm(23);
+    rows.forEach(row => {
+      x.fillStyle = '#8698A6';
+      x.font = '600 ' + mm(2.3) + 'px system-ui, Arial, sans-serif';
+      x.fillText(row[0], cx, y);
+      x.fillStyle = '#12242F';
+      const vs = fitText(x, row[1], cw, mm(3.2), '700');
+      x.font = (row[2] ? '700 ' + vs + 'px ui-monospace, Menlo, Consolas, monospace'
+                       : '700 ' + vs + 'px system-ui, "Segoe UI", Roboto, Arial, sans-serif');
+      x.fillText(row[1], cx, y + mm(3.6));
+      y += mm(8.2);
+    });
+
+    /* Bande de bas de carte */
+    const fh = mm(2.5), fy = cv.height - fh, step = mm(6);
+    x.fillStyle = '#0E2436'; x.fillRect(0, fy, cv.width, fh);
+    x.fillStyle = '#FFB000';
+    for (let i = -step; i < cv.width + step; i += step * 2) {
+      x.beginPath();
+      x.moveTo(i, cv.height); x.lineTo(i + step, cv.height);
+      x.lineTo(i + step + mm(1.2), fy); x.lineTo(i + mm(1.2), fy);
+      x.closePath(); x.fill();
+    }
+    x.restore();
+    return cv;
+  }
+  async function openBadge(r) {
+    badgeRider = r;
+    $('#badge-modal-title').textContent = 'Badge — ' + r.name;
+    const cv = await buildBadge(r);
+    const target = $('#badge-canvas');
+    target.width = cv.width; target.height = cv.height;
+    const ctx = target.getContext('2d');
+    if (ctx) ctx.drawImage(cv, 0, 0);
+    const sh = $('#badge-share');
+    sh.hidden = !(navigator.canShare && window.File);
+    openModal('#badge-modal');
+  }
+  function badgeFile() {
+    const cv = $('#badge-canvas');
+    const url = cv.toDataURL('image/png');
+    const name = 'badge-' + norm(badgeRider.name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.png';
+    return { url: url, name: name };
+  }
+
   /* Badge au format carte bancaire (85,6 × 54 mm), imprimable. */
   function printBadge(r) {
     const w = window.open('', '_blank', 'width=620,height=520');
@@ -2120,6 +2260,26 @@ tbody tr:hover{background:#F8FAFC}
      ====================================================================== */
   function bindCommon() {
     $('#link-copy').addEventListener('click', copyNow);
+    $('#badge-print').addEventListener('click', () => { if (badgeRider) printBadge(badgeRider); });
+    $('#badge-dl').addEventListener('click', () => {
+      try {
+        const f = badgeFile();
+        const a = document.createElement('a');
+        a.href = f.url; a.download = f.name;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        toast('Badge téléchargé', 'ok');
+      } catch (e) { toast('Téléchargement impossible sur ce navigateur.', 'err'); }
+    });
+    $('#badge-share').addEventListener('click', async () => {
+      try {
+        const f = badgeFile();
+        const blob = await (await fetch(f.url)).blob();
+        const file = new File([blob], f.name, { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'Badge livreur' });
+        } else toast('Partage de fichier non pris en charge ici.', 'err');
+      } catch (e) { /* partage annulé */ }
+    });
     $('#link-share').addEventListener('click', () => {
       if (navigator.share) navigator.share({ text: $('#link-text').value }).catch(() => {});
     });
@@ -2222,7 +2382,7 @@ tbody tr:hover{background:#F8FAFC}
       const btn = e.target.closest('button'); if (!btn) return;
       const d = btn.dataset;
       if (d.redit) openRider(d.redit);
-      if (d.rbadge) { const r = riderById(d.rbadge); if (r) { if (ensureRiderAccess()) save(); printBadge(r); } }
+      if (d.rbadge) { const r = riderById(d.rbadge); if (r) { if (ensureRiderAccess()) save(); openBadge(r); } }
       if (d.rlink) {
         const r = riderById(d.rlink); if (!r) return;
         if (ensureRiderAccess()) save();
