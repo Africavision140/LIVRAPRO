@@ -15,8 +15,7 @@
 <body>
   <p>Ouverture du suivi…</p>
   <script>
-  /* Aiguillage. Tout le code vit dans index.html, à côté de ce fichier :
-     un seul fichier à mettre à jour, deux adresses stables à distribuer. */
+  /* Aiguillage. Tout le code vit dans index.html, à côté de ce fichier. */
   (function () {
     var q = location.search ? '&' + location.search.slice(1) : '';
     location.replace('index.html?suivi' + q + location.hash);
