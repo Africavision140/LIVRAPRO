@@ -400,6 +400,15 @@ tbody tr:hover{background:#F8FAFC}
   .p-shop span.hide-s{display:none}
 }
 
+.link-box{
+  width:100%;border:1px solid var(--line);border-radius:var(--r-s);padding:11px 12px;
+  font-family:var(--mono);font-size:13.5px;line-height:1.6;resize:vertical;background:var(--line-soft);
+}
+.link-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.link-actions .btn{flex:1;min-width:130px;text-decoration:none}
+.btn-wa{background:#25D366;color:#06331A}
+.btn-wa:hover{background:#1FBB59}
+
 @media(max-width:960px){
   .panels-grid{grid-template-columns:1fr}
 }
@@ -959,6 +968,28 @@ tbody tr:hover{background:#F8FAFC}
     </div>
   </div>
 
+  <!-- ========== Partage d'un lien ========== -->
+  <div class="modal-overlay" id="link-modal">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-header">
+        <h2 id="link-modal-title">Lien</h2>
+        <button class="modal-close" data-close-modal>✕</button>
+      </div>
+      <div style="padding:18px">
+        <textarea id="link-text" class="link-box" rows="3" readonly></textarea>
+        <div class="link-actions">
+          <button class="btn btn-primary" id="link-copy">📋 Copier</button>
+          <a class="btn btn-wa" id="link-wa" target="_blank" rel="noopener">WhatsApp</a>
+          <button class="btn btn-ghost" id="link-share" hidden>Partager…</button>
+        </div>
+        <p style="font-size:12.5px;color:var(--txt-2);margin-top:12px">
+          Si le bouton Copier ne réagit pas, le texte est déjà sélectionné :
+          faites Ctrl+C, ou appuyez longuement dessus sur téléphone.
+        </p>
+      </div>
+    </div>
+  </div>
+
   <datalist id="zones"></datalist>
 <script>
 /* ==========================================================================
@@ -1276,12 +1307,32 @@ tbody tr:hover{background:#F8FAFC}
       try { new Notification('LivraPro', { body: text }); } catch (e) {}
     }
   }
-  function copyLink(url, label) {
+  /* Le presse-papier automatique est refusé par certains navigateurs.
+     On affiche donc toujours le texte, sélectionné, avec des boutons de secours. */
+  function copyLink(text, label) {
+    const ta = $('#link-text');
+    if (!ta) { window.prompt('Copiez ce lien :', text); return; }
+    $('#link-modal-title').textContent = label || 'Lien';
+    ta.value = text;
+    ta.rows = Math.min(5, text.split('\n').length + 1);
+    $('#link-wa').href = 'https://wa.me/?text=' + encodeURIComponent(text);
+    const sh = $('#link-share');
+    sh.hidden = !navigator.share;
+    openModal('#link-modal');
+    setTimeout(() => { try { ta.focus(); ta.select(); } catch (e) {} }, 60);
+  }
+  function copyNow() {
+    const ta = $('#link-text');
+    ta.focus(); ta.select();
+    try { ta.setSelectionRange(0, ta.value.length); } catch (e) {}
+    let done = false;
+    try { done = document.execCommand('copy'); } catch (e) {}
+    if (done) { toast('Copié', 'ok'); return; }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(url).then(
-        () => toast(label + ' copié', 'ok'),
-        () => window.prompt('Copiez ce lien :', url));
-    } else window.prompt('Copiez ce lien :', url);
+      navigator.clipboard.writeText(ta.value).then(
+        () => toast('Copié', 'ok'),
+        () => toast('Texte sélectionné — copiez-le à la main', 'err'));
+    } else toast('Texte sélectionné — copiez-le à la main', 'err');
   }
   /* Clé de suivi compacte : LP-260907-005 → 260907005.
      Accepte aussi un lien entier collé dans le champ de recherche. */
@@ -1771,6 +1822,10 @@ tbody tr:hover{background:#F8FAFC}
      Événements
      ====================================================================== */
   function bindCommon() {
+    $('#link-copy').addEventListener('click', copyNow);
+    $('#link-share').addEventListener('click', () => {
+      if (navigator.share) navigator.share({ text: $('#link-text').value }).catch(() => {});
+    });
     $$('[data-close-modal]').forEach(b => b.addEventListener('click', e => closeModal(e.target.closest('.modal-overlay'))));
     $$('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) closeModal(m); }));
     document.addEventListener('keydown', e => { if (e.key === 'Escape') $$('.modal-overlay.open').forEach(closeModal); });
