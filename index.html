@@ -785,7 +785,12 @@ tbody tr:hover{background:#F8FAFC}
       <h2 class="login-title" id="rider-hello">Espace livreur</h2>
       <p class="login-sub" id="rider-sub">Entrez votre code à 4 chiffres pour voir vos courses.</p>
       <form id="rider-pin-form">
+        <div class="form-group" id="rider-phone-wrap" hidden>
+          <label>Votre numéro de téléphone</label>
+          <input type="tel" id="rider-phone-in" inputmode="tel" placeholder="Ex : 622 45 12 09" autocomplete="tel">
+        </div>
         <div class="form-group">
+          <label id="rider-pin-label" hidden>Votre code à 4 chiffres</label>
           <input type="tel" id="rider-pin" class="pin-input" inputmode="numeric" maxlength="4"
                  pattern="[0-9]{4}" placeholder="••••" autocomplete="off" required>
         </div>
@@ -1826,6 +1831,11 @@ tbody tr:hover{background:#F8FAFC}
     $('#rider-history').innerHTML = doneToday.length ? doneToday.map(jobCard).join('')
       : '<div class="empty" style="padding:20px">Rien de terminé aujourd\u2019hui.</div>';
   }
+  function showRiderPhoneField() {
+    $('#rider-phone-wrap').hidden = false;
+    $('#rider-pin-label').hidden = false;
+    $('#rider-sub').textContent = 'Entrez votre numéro de téléphone et votre code à 4 chiffres.';
+  }
   function openRiderSession(r) {
     rider = r;
     document.body.classList.remove('locked');
@@ -2341,8 +2351,23 @@ tbody tr:hover{background:#F8FAFC}
   function bindRider() {
     $('#rider-pin-form').addEventListener('submit', e => {
       e.preventDefault();
-      const r = S.riders.filter(x => x.token === riderToken)[0];
-      if (!r) { $('#rider-pin-error').textContent = 'Lien invalide. Demandez-en un nouveau à l’agence.'; return; }
+      let r = S.riders.filter(x => x.token === riderToken)[0];
+      if (!r && !$('#rider-phone-wrap').hidden) {
+        const t = String($('#rider-phone-in').value).replace(/\D/g, '');
+        if (t.length < 6) { $('#rider-pin-error').textContent = 'Entrez votre numéro de téléphone complet.'; return; }
+        const hits = S.riders.filter(x => {
+          const p = String(x.phone || '').replace(/\D/g, '');
+          return p && (p.slice(-8) === t.slice(-8));
+        });
+        if (!hits.length) { $('#rider-pin-error').textContent = 'Numéro inconnu. Vérifiez avec l’agence.'; return; }
+        r = hits.filter(x => String(x.pin) === String($('#rider-pin').value).trim())[0] || hits[0];
+      }
+      if (!r) {
+        $('#rider-pin-error').textContent = S.riders.length
+          ? 'Lien incomplet. Entrez votre numéro et votre code.'
+          : 'Aucune donnée reçue. Vérifiez la connexion internet.';
+        showRiderPhoneField(); return;
+      }
       if (String($('#rider-pin').value).trim() !== String(r.pin)) {
         $('#rider-pin-error').textContent = 'Code incorrect.'; return;
       }
@@ -2483,9 +2508,16 @@ tbody tr:hover{background:#F8FAFC}
       if (r && remembered) openRiderSession(r);
       else {
         $('#rider-login').hidden = false;
-        if (r) { $('#rider-hello').textContent = 'Bonjour ' + r.name.split(' ')[0]; }
-        else if (riderToken) $('#rider-pin-error').textContent = 'Lien inconnu. Demandez-en un nouveau à l’agence.';
-        setTimeout(() => $('#rider-pin').focus(), 120);
+        if (r) {
+          $('#rider-hello').textContent = 'Bonjour ' + r.name.split(' ')[0];
+          setTimeout(() => $('#rider-pin').focus(), 120);
+        } else {
+          /* Jeton absent ou inconnu : on bascule sur téléphone + code,
+             ce qui fonctionne même sans lien personnel. */
+          showRiderPhoneField();
+          if (riderToken) $('#rider-pin-error').textContent = 'Lien non reconnu — identifiez-vous ci-dessous.';
+          setTimeout(() => $('#rider-phone-in').focus(), 120);
+        }
       }
       setInterval(async () => { await pull(); renderRiderPortal(); }, 15000);
       return;
