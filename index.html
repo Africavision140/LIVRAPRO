@@ -400,6 +400,17 @@ tbody tr:hover{background:#F8FAFC}
   .p-shop span.hide-s{display:none}
 }
 
+/* ============ Photo du livreur ============ */
+.ph{object-fit:cover;background:var(--line-soft);display:block}
+.rider-avatar.ph{padding:0}
+.photo-row{display:flex;align-items:center;gap:14px}
+.photo-prev{width:74px;height:74px;border-radius:12px;border:1px solid var(--line);flex:none;
+  object-fit:cover;background:var(--line-soft)}
+.photo-empty{width:74px;height:74px;border-radius:12px;border:1px dashed var(--line);flex:none;
+  display:grid;place-items:center;font-size:26px;color:var(--txt-3);background:var(--line-soft)}
+.wb-rider{display:flex;align-items:center;gap:8px}
+.wb-rider img{width:30px;height:30px;border-radius:8px;object-fit:cover;flex:none}
+
 /* ============ Portail livreur ============ */
 .job{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--amber);
   border-radius:var(--r);padding:16px;margin-bottom:12px}
@@ -806,6 +817,8 @@ tbody tr:hover{background:#F8FAFC}
       <span class="brand"><span class="brand-icon">🛵</span>LivraPro</span>
       <span class="cloud" id="cloud-state-rider">Local</span>
       <div class="p-shop">
+        <img id="rider-portal-photo" alt="" hidden
+             style="width:30px;height:30px;border-radius:8px;object-fit:cover">
         <b id="rider-portal-name">—</b>
         <button class="btn btn-ghost btn-xs" id="rider-pause">Pause</button>
         <button class="btn btn-ghost btn-xs" id="rider-quit">Quitter</button>
@@ -994,6 +1007,17 @@ tbody tr:hover{background:#F8FAFC}
           <div class="form-group"><label>Immatriculation</label><input type="text" id="rider-plate" placeholder="Ex : RC-1234-A"></div>
           <div class="form-group"><label>Code d'accès à 4 chiffres</label>
             <input type="text" id="rider-pin-set" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="Ex : 3609"></div>
+          <div class="form-group full">
+            <label>Photo d'identité</label>
+            <div class="photo-row">
+              <div class="photo-empty" id="rider-photo-empty">👤</div>
+              <img class="photo-prev" id="rider-photo-prev" alt="Photo du livreur" hidden>
+              <div style="flex:1">
+                <input type="file" id="rider-photo" accept="image/*" capture="user">
+                <button type="button" class="btn btn-ghost btn-xs" id="rider-photo-clear" style="margin-top:8px" hidden>Retirer la photo</button>
+              </div>
+            </div>
+          </div>
           <div class="form-group"><label>Statut</label>
             <select id="rider-status">
               <option value="disponible">Disponible</option>
@@ -1330,6 +1354,12 @@ tbody tr:hover{background:#F8FAFC}
   const clientById = id => S.clients.filter(c => c.id === id)[0] || null;
   const senderLabel = o => o.senderId ? ((clientById(o.senderId) || {}).name || o.senderName || 'Boutique') : (o.senderName || 'Agence');
   const initials = n => String(n||'?').trim().split(/\s+/).slice(0,2).map(w => w[0]).join('').toUpperCase();
+  function avatar(r, px) {
+    const st = 'width:' + px + 'px;height:' + px + 'px;border-radius:' + Math.round(px/3.6) + 'px';
+    return r && r.photo
+      ? '<img class="rider-avatar ph" style="' + st + '" src="' + r.photo + '" alt="">'
+      : '<span class="rider-avatar" style="' + st + '">' + esc(initials(r && r.name)) + '</span>';
+  }
 
   function newRef() {
     const d = new Date();
@@ -1499,7 +1529,7 @@ tbody tr:hover{background:#F8FAFC}
 
     $('#rider-status-list').innerHTML = S.riders.length ? S.riders.slice(0,7).map(r =>
       '<div class="rider-line">' +
-        '<span class="rider-avatar">' + esc(initials(r.name)) + '</span>' +
+        avatar(r, 33) +
         '<div><div class="cell-main">' + esc(r.name) + '</div>' +
         '<div class="cell-sub">' + esc(r.vehicle||'—') + (r.plate ? ' · ' + esc(r.plate) : '') + '</div></div>' +
         '<span class="pill ' + r.status + '">' + RIDER_STATUS[r.status] + '</span>' +
@@ -1594,7 +1624,7 @@ tbody tr:hover{background:#F8FAFC}
       const done = mine.filter(o => o.status === 'livree');
       return '<div class="rider-card">' +
         '<div class="rider-top">' +
-          '<span class="rider-avatar">' + esc(initials(r.name)) + '</span>' +
+          avatar(r, 42) +
           '<div style="flex:1;min-width:0">' +
             '<div class="rider-name">' + esc(r.name) + '</div>' +
             '<div class="rider-meta">' + esc(r.phone) + '</div>' +
@@ -1608,7 +1638,8 @@ tbody tr:hover{background:#F8FAFC}
           '<div class="rider-stat"><b style="font-size:14px">' + money(done.reduce((s,o)=>s+(o.fee||0),0)) + '</b><span>Encaissé</span></div>' +
         '</div>' +
         '<div class="rider-foot">' +
-          '<button class="btn btn-ghost btn-xs" data-rlink="' + r.id + '">🔗 Lien livreur</button>' +
+          '<button class="btn btn-ghost btn-xs" data-rlink="' + r.id + '">🔗 Lien</button>' +
+          '<button class="btn btn-ghost btn-xs" data-rbadge="' + r.id + '">🪪 Badge</button>' +
           '<button class="btn btn-ghost btn-xs" data-rstatus="' + r.id + '">Statut</button>' +
           '<a class="btn btn-ghost btn-xs" href="tel:' + esc(String(r.phone).replace(/\s/g,'')) + '">📞 Appeler</a>' +
           '<button class="icon-btn" data-redit="' + r.id + '" title="Modifier">✏️</button>' +
@@ -1654,7 +1685,10 @@ tbody tr:hover{background:#F8FAFC}
           '<div><div class="field-label">Expéditeur</div><div class="field-value">' + esc(senderLabel(o)) + '</div></div>' +
           '<div><div class="field-label">Enlèvement</div><div class="field-value">' + esc(o.pickup || 'Agence') + '</div></div>' +
           '<div><div class="field-label">Livraison</div><div class="field-value">' + esc(o.address) + '</div></div>' +
-          '<div><div class="field-label">Livreur</div><div class="field-value">' + (r ? esc(r.name) + (opts.hidePhone ? '' : ' · ' + esc(r.phone)) : 'En attente d\u2019affectation') + '</div></div>' +
+          '<div><div class="field-label">Livreur</div><div class="field-value wb-rider">' +
+            (r ? (r.photo ? '<img src="' + r.photo + '" alt="">' : '') + '<span>' + esc(r.name) +
+                 (opts.hidePhone ? '' : ' · ' + esc(r.phone)) + '</span>'
+               : 'En attente d\u2019affectation') + '</div></div>' +
           '<div><div class="field-label">Colis</div><div class="field-value">' + esc(o.description || '—') + '</div></div>' +
           '<div><div class="field-label">Frais</div><div class="field-value">' + money(o.fee) +
             ' <span style="font-weight:400;color:var(--txt-2)">(' + (o.payment === 'destinataire' ? 'à la réception' : 'expéditeur') + ')</span></div></div>' +
@@ -1820,6 +1854,8 @@ tbody tr:hover{background:#F8FAFC}
     const doneToday = mine.filter(o => o.status === 'livree' && isToday(o.updatedAt || o.createdAt));
 
     $('#rider-portal-name').textContent = rider.name;
+    const rp = $('#rider-portal-photo');
+    if (rider.photo) { rp.src = rider.photo; rp.hidden = false; } else { rp.hidden = true; }
     $('#rd-todo').textContent = active.filter(o => o.status === 'assignee').length;
     $('#rd-route').textContent = active.filter(o => o.status === 'en_cours').length;
     $('#rd-done').textContent = doneToday.length;
@@ -1880,6 +1916,29 @@ tbody tr:hover{background:#F8FAFC}
     if (o) { $('#order-sender').value = o.senderId || ''; $('#order-rider').value = o.riderId || ''; }
   }
   let photoBuffer = null;
+  let riderPhoto = null;
+  function showRiderPhoto() {
+    const img = $('#rider-photo-prev'), ph = $('#rider-photo-empty'), clr = $('#rider-photo-clear');
+    if (!img) return;
+    if (riderPhoto) { img.src = riderPhoto; img.hidden = false; ph.hidden = true; clr.hidden = false; }
+    else { img.removeAttribute('src'); img.hidden = true; ph.hidden = false; clr.hidden = true; }
+  }
+  /* Réduit et recadre en carré pour ne pas alourdir la base. */
+  function readSquare(file, size, cb) {
+    const fr = new FileReader();
+    fr.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const c = Math.min(img.width, img.height);
+        const cv = document.createElement('canvas');
+        cv.width = cv.height = size;
+        cv.getContext('2d').drawImage(img, (img.width-c)/2, (img.height-c)/2, c, c, 0, 0, size, size);
+        cb(cv.toDataURL('image/jpeg', 0.72));
+      };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  }
   function openOrder(id) {
     const o = id ? S.orders.filter(x => x.id === id)[0] : null;
     $('#order-modal-title').textContent = o ? 'Livraison ' + o.ref : 'Nouvelle livraison';
@@ -1911,6 +1970,9 @@ tbody tr:hover{background:#F8FAFC}
     $('#rider-vehicle').value = r ? (r.vehicle||'Moto') : 'Moto';
     $('#rider-plate').value = r ? (r.plate||'') : '';
     $('#rider-pin-set').value = r ? (r.pin||'') : '';
+    $('#rider-photo').value = '';
+    riderPhoto = r ? (r.photo || null) : null;
+    showRiderPhoto();
     $('#rider-status').value = r ? r.status : 'disponible';
     openModal('#rider-modal');
     setTimeout(() => $('#rider-name').focus(), 50);
@@ -1973,6 +2035,51 @@ tbody tr:hover{background:#F8FAFC}
       '</body></html>');
     w.document.close();
     setTimeout(() => { try { w.print(); } catch (e) {} }, 350);
+  }
+
+  /* Badge au format carte bancaire (85,6 × 54 mm), imprimable. */
+  function printBadge(r) {
+    const w = window.open('', '_blank', 'width=620,height=520');
+    if (!w) { toast('Autorisez les fenêtres pop-up pour imprimer le badge.', 'err'); return; }
+    const mat = String(r.token || '').slice(0, 6).toUpperCase() || '—';
+    const photo = r.photo
+      ? '<img src="' + r.photo + '" alt="">'
+      : '<div class="noph">' + esc(initials(r.name)) + '</div>';
+    const line = (l, v) => '<tr><th>' + l + '</th><td>' + esc(v || '—') + '</td></tr>';
+    w.document.write('<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">' +
+      '<title>Badge — ' + esc(r.name) + '</title><style>' +
+      '@page{size:auto;margin:12mm}' +
+      'body{margin:0;padding:18px;background:#EEF2F6;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#12242F}' +
+      '.badge{width:85.6mm;height:54mm;background:#fff;border-radius:4mm;overflow:hidden;' +
+        'display:flex;flex-direction:column;border:1px solid #DBE3EB}' +
+      '.bh{background:#0E2436;color:#fff;padding:3mm 4mm;display:flex;align-items:center;gap:2mm;' +
+        'font-weight:800;font-size:4mm;letter-spacing:-.2px}' +
+      '.bh span.role{margin-left:auto;font-size:2.6mm;font-weight:700;color:#FFB000;text-transform:uppercase;letter-spacing:.6px}' +
+      '.bb{flex:1;display:flex;gap:4mm;padding:4mm}' +
+      '.bb img,.noph{width:24mm;height:30mm;border-radius:2mm;object-fit:cover;flex:none;background:#EEF2F6}' +
+      '.noph{display:flex;align-items:center;justify-content:center;font-size:9mm;font-weight:800;color:#8698A6}' +
+      '.nm{font-size:5mm;font-weight:800;letter-spacing:-.3px;line-height:1.1}' +
+      'table{border-collapse:collapse;margin-top:2mm;width:100%}' +
+      'th{text-align:left;font-size:2.4mm;color:#8698A6;font-weight:600;padding:.9mm 0;width:17mm;text-transform:uppercase;letter-spacing:.4px}' +
+      'td{font-size:3mm;font-weight:600;padding:.9mm 0}' +
+      '.bf{background:repeating-linear-gradient(115deg,#FFB000 0 6mm,#0E2436 6mm 12mm);height:2.5mm}' +
+      '.mat{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:3mm;font-weight:700;letter-spacing:.5px}' +
+      '.note{margin-top:14px;font-size:12px;color:#5C7385;max-width:85.6mm}' +
+      '@media print{body{background:#fff;padding:0}.note{display:none}}' +
+      '</style></head><body><div class="badge">' +
+      '<div class="bh">🚚 LivraPro<span class="role">Livreur</span></div>' +
+      '<div class="bb">' + photo + '<div style="flex:1;min-width:0">' +
+        '<div class="nm">' + esc(r.name) + '</div><table>' +
+        line('Téléphone', r.phone) +
+        line('Véhicule', r.vehicle) +
+        line('Immat.', r.plate) +
+        '<tr><th>Matricule</th><td class="mat">' + mat + '</td></tr>' +
+      '</table></div></div><div class="bf"></div></div>' +
+      '<p class="note">Imprimez, découpez sur le bord de la carte, puis glissez dans un porte-badge. ' +
+      'Le code d’accès ne figure volontairement pas sur le badge.</p>' +
+      '</body></html>');
+    w.document.close();
+    setTimeout(() => { try { w.print(); } catch (e) {} }, 400);
   }
 
   function go(view) {
@@ -2115,6 +2222,7 @@ tbody tr:hover{background:#F8FAFC}
       const btn = e.target.closest('button'); if (!btn) return;
       const d = btn.dataset;
       if (d.redit) openRider(d.redit);
+      if (d.rbadge) { const r = riderById(d.rbadge); if (r) { if (ensureRiderAccess()) save(); printBadge(r); } }
       if (d.rlink) {
         const r = riderById(d.rlink); if (!r) return;
         if (ensureRiderAccess()) save();
@@ -2234,6 +2342,14 @@ tbody tr:hover{background:#F8FAFC}
       hint.textContent = 'Estimation ' + est.z1 + ' → ' + est.z2 + ' : ' + est.km + ' km, ' + est.min + ' min, ' + money(est.fee) + '. Ajustez si nécessaire.';
     });
 
+    $('#rider-photo').addEventListener('change', e => {
+      const f = e.target.files && e.target.files[0]; if (!f) return;
+      readSquare(f, 320, dataUrl => { riderPhoto = dataUrl; showRiderPhoto(); toast('Photo ajoutée'); });
+    });
+    $('#rider-photo-clear').addEventListener('click', () => {
+      riderPhoto = null; $('#rider-photo').value = ''; showRiderPhoto();
+    });
+
     $('#rider-form').addEventListener('submit', e => {
       e.preventDefault();
       const id = $('#rider-id').value;
@@ -2242,6 +2358,7 @@ tbody tr:hover{background:#F8FAFC}
       const data = { name:$('#rider-name').value.trim(), phone:$('#rider-phone').value.trim(),
         vehicle:$('#rider-vehicle').value, plate:$('#rider-plate').value.trim(), status:$('#rider-status').value };
       if (pin) data.pin = pin;
+      data.photo = riderPhoto;
       if (id) { Object.assign(riderById(id), data); toast('Livreur mis à jour', 'ok'); }
       else {
         S.riders.push(Object.assign({ id:uid(), createdAt:new Date().toISOString(), token:newToken(),
