@@ -400,6 +400,26 @@ tbody tr:hover{background:#F8FAFC}
   .p-shop span.hide-s{display:none}
 }
 
+/* ============ Portail livreur ============ */
+.job{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--amber);
+  border-radius:var(--r);padding:16px;margin-bottom:12px}
+.job.pickup{border-left-color:var(--blue)}
+.job.route{border-left-color:var(--orange)}
+.job-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.job-top .ref{font-size:13.5px}
+.job-top .pill{margin-left:auto}
+.job-leg{display:flex;gap:11px;padding:10px 0;border-top:1px dashed var(--line)}
+.job-leg .ico{font-size:17px;line-height:1.2;flex:none}
+.job-leg .lbl{font-size:11.5px;color:var(--txt-3)}
+.job-leg .val{font-size:14.5px;font-weight:700;margin-top:1px}
+.job-leg .sub{font-size:13px;color:var(--txt-2);margin-top:2px}
+.job-cash{background:var(--amber-soft);border-radius:var(--r-s);padding:11px 13px;margin-top:12px;
+  display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:15px}
+.job-cash small{font-weight:600;font-size:12px;color:var(--txt-2);display:block}
+.job-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+.job-actions .btn{flex:1;min-width:140px;padding:12px;text-decoration:none}
+.pin-input{font-family:var(--mono);font-size:26px;letter-spacing:10px;text-align:center}
+
 .link-box{
   width:100%;border:1px solid var(--line);border-radius:var(--r-s);padding:11px 12px;
   font-family:var(--mono);font-size:13.5px;line-height:1.6;resize:vertical;background:var(--line-soft);
@@ -758,6 +778,50 @@ tbody tr:hover{background:#F8FAFC}
     </div>
   </div>
 
+  <!-- ========== Portail livreur ========== -->
+  <div id="rider-login" class="login-screen" hidden>
+    <div class="login-card">
+      <div class="login-logo"><span class="login-logo-icon">🛵</span><span>LivraPro</span></div>
+      <h2 class="login-title" id="rider-hello">Espace livreur</h2>
+      <p class="login-sub" id="rider-sub">Entrez votre code à 4 chiffres pour voir vos courses.</p>
+      <form id="rider-pin-form">
+        <div class="form-group">
+          <input type="tel" id="rider-pin" class="pin-input" inputmode="numeric" maxlength="4"
+                 pattern="[0-9]{4}" placeholder="••••" autocomplete="off" required>
+        </div>
+        <button type="submit" class="btn btn-accent login-btn" style="margin-top:14px">Voir mes courses</button>
+        <p class="login-error" id="rider-pin-error"></p>
+      </form>
+      <p class="login-hint">Ce code vous est donné par l'agence.</p>
+    </div>
+  </div>
+
+  <div id="rider-portal" class="portal" hidden>
+    <div class="p-top">
+      <span class="brand"><span class="brand-icon">🛵</span>LivraPro</span>
+      <span class="cloud" id="cloud-state-rider">Local</span>
+      <div class="p-shop">
+        <b id="rider-portal-name">—</b>
+        <button class="btn btn-ghost btn-xs" id="rider-pause">Pause</button>
+        <button class="btn btn-ghost btn-xs" id="rider-quit">Quitter</button>
+      </div>
+    </div>
+    <div class="p-body">
+      <div class="p-stats">
+        <div class="p-stat"><b id="rd-todo">0</b><span>À faire</span></div>
+        <div class="p-stat"><b id="rd-route">0</b><span>En route</span></div>
+        <div class="p-stat"><b id="rd-done">0</b><span>Livrées aujourd'hui</span></div>
+        <div class="p-stat"><b id="rd-cash" style="font-size:16px">0</b><span>À encaisser</span></div>
+      </div>
+      <div id="rider-jobs"></div>
+      <details style="margin-top:18px">
+        <summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--txt-2)">Courses terminées</summary>
+        <div id="rider-history" style="margin-top:12px"></div>
+      </details>
+      <p class="client-foot">Gardez cette page ouverte : vous serez averti dès qu'une course vous est confiée.</p>
+    </div>
+  </div>
+
   <!-- ========== Suivi public d'un colis ========== -->
   <div id="public" class="portal" hidden>
     <div class="p-top">
@@ -923,6 +987,8 @@ tbody tr:hover{background:#F8FAFC}
             <select id="rider-vehicle"><option>Moto</option><option>Scooter</option><option>Voiture</option><option>Vélo</option><option>Piéton</option></select>
           </div>
           <div class="form-group"><label>Immatriculation</label><input type="text" id="rider-plate" placeholder="Ex : RC-1234-A"></div>
+          <div class="form-group"><label>Code d'accès à 4 chiffres</label>
+            <input type="text" id="rider-pin-set" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="Ex : 3609"></div>
           <div class="form-group"><label>Statut</label>
             <select id="rider-status">
               <option value="disponible">Disponible</option>
@@ -1018,6 +1084,7 @@ tbody tr:hover{background:#F8FAFC}
   const KEY = 'livrapro.v3';
   const SESSION = 'livrapro.session';
   const SHOP_SESSION = 'livrapro.shop';
+  const RIDER_SESSION = 'livrapro.rider';
   const RATE_EUR = 10000;
   const TARIF_BASE = 15000;
   const TARIF_KM = 3000;
@@ -1035,6 +1102,7 @@ tbody tr:hover{background:#F8FAFC}
     let dir = location.pathname.replace(/[^/]*$/, '');   // se termine par /
     let folder = null;
     if (/^boutique\.html?$/i.test(file)) folder = 'boutique';
+    else if (/^l(ivreur)?\.html?$/i.test(file)) folder = 'livreur';
     else if (/^s(uivi)?\.html?$/i.test(file)) folder = 'suivi';
     else {
       const m = /\/(boutique|suivi)\/$/.exec(dir);      // variante en dossiers
@@ -1044,6 +1112,7 @@ tbody tr:hover{background:#F8FAFC}
   })();
   const MODE =
       (has('boutique') || has('client') || LOC.folder === 'boutique') ? 'boutique'
+    : (has('livreur') || LOC.folder === 'livreur') ? 'livreur'
     : (has('suivi') || LOC.folder === 'suivi') ? 'suivi'
     : 'agence';
   if (has('local')) CLOUD.projectId = '';
@@ -1078,6 +1147,8 @@ tbody tr:hover{background:#F8FAFC}
   };
   let filters = { orders:'', status:'', sender:'', riders:'', riderStatus:'', tracking:'', clients:'', shop:'', shopStatus:'' };
   let shop = null;          // boutique connectée dans le portail
+  let rider = null;         // livreur connecté dans son portail
+  let riderToken = '';      // jeton lu dans le lien personnel
   let openShip = null;      // expédition dépliée dans le portail
 
   function save() {
@@ -1160,12 +1231,17 @@ tbody tr:hover{background:#F8FAFC}
       if (!cur) {
         local.push(r);
         snapshot[key][r.id] = stable(r);
+        if (key === 'orders' && MODE === 'livreur' && rider && r.riderId === rider.id &&
+            r.status !== 'livree' && r.status !== 'annulee') riderAlert(r);
         if (key === 'orders' && MODE === 'agence' && r.origin === 'boutique') {
           S.notifs.unshift({ id: uid(), icon:'🏪', text:'Nouvelle demande de ' + (r.senderName || 'une boutique') + ' — ' + r.ref, at:new Date().toISOString(), read:false });
         }
       } else if ((r._v || 0) > (cur._v || 0)) {
+        const newlyMine = key === 'orders' && MODE === 'livreur' && rider &&
+          cur.riderId !== rider.id && r.riderId === rider.id;
         Object.assign(cur, r);
         snapshot[key][r.id] = stable(r);
+        if (newlyMine) riderAlert(r);
       }
     });
     /* Enregistrement absent à distance mais déjà poussé = supprimé ailleurs */
@@ -1260,6 +1336,15 @@ tbody tr:hover{background:#F8FAFC}
     });
     return 'LP-' + day + '-' + String(n).padStart(3, '0');
   }
+  const newToken = () => (Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10));
+  function ensureRiderAccess() {
+    let touched = false;
+    S.riders.forEach(r => {
+      if (!r.token) { r.token = newToken(); touched = true; }
+      if (!r.pin) { r.pin = (String(r.phone || '').replace(/\D/g, '').slice(-4) || '0000'); touched = true; }
+    });
+    return touched;
+  }
   function newShopCode() {
     let c;
     do { c = 'BTQ-' + Math.floor(1000 + Math.random()*9000); }
@@ -1344,6 +1429,7 @@ tbody tr:hover{background:#F8FAFC}
   }
   const trackLink = ref => LOC.root + 's.html#' + refKey(ref);
   const portalLink = () => LOC.root + 'boutique.html';
+  const riderLink = r => LOC.root + 'l.html#' + r.token;
   const agencyLink = () => LOC.root;
 
   /* ---------- Distance, durée, tarif ---------- */
@@ -1517,7 +1603,8 @@ tbody tr:hover{background:#F8FAFC}
           '<div class="rider-stat"><b style="font-size:14px">' + money(done.reduce((s,o)=>s+(o.fee||0),0)) + '</b><span>Encaissé</span></div>' +
         '</div>' +
         '<div class="rider-foot">' +
-          '<button class="btn btn-ghost btn-xs" data-rstatus="' + r.id + '">Changer le statut</button>' +
+          '<button class="btn btn-ghost btn-xs" data-rlink="' + r.id + '">🔗 Lien livreur</button>' +
+          '<button class="btn btn-ghost btn-xs" data-rstatus="' + r.id + '">Statut</button>' +
           '<a class="btn btn-ghost btn-xs" href="tel:' + esc(String(r.phone).replace(/\s/g,'')) + '">📞 Appeler</a>' +
           '<button class="icon-btn" data-redit="' + r.id + '" title="Modifier">✏️</button>' +
           '<button class="icon-btn danger" data-rdel="' + r.id + '" title="Supprimer">🗑️</button>' +
@@ -1592,6 +1679,7 @@ tbody tr:hover{background:#F8FAFC}
   function renderAll() {
     syncRiders();
     if (MODE === 'boutique') { renderShop(); return; }
+    if (MODE === 'livreur') { renderRiderPortal(); return; }
     if (MODE === 'suivi') return;
     renderDashboard(); renderOrders(); renderClients(); renderRiders(); renderTracking(); renderNotifs();
     if ($('#fee-currency')) {
@@ -1659,6 +1747,97 @@ tbody tr:hover{background:#F8FAFC}
   }
 
   /* ======================================================================
+     Portail livreur
+     ====================================================================== */
+  function riderAlert(o) {
+    beep();
+    toast('Nouvelle course : ' + o.ref + ' → ' + o.address, 'ok');
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification('Nouvelle course — ' + o.ref, {
+          body: 'Retrait : ' + (o.pickup || 'Agence') + '\nLivraison : ' + o.address,
+          tag: o.id
+        });
+      } catch (e) {}
+    }
+  }
+  function cashToCollect(o) {
+    return (o.payment === 'destinataire' ? (o.fee || 0) : 0) + (o.cod || 0);
+  }
+  function jobCard(o) {
+    const done = o.status === 'livree' || o.status === 'annulee';
+    const cls = o.status === 'en_cours' ? 'route' : (o.status === 'assignee' ? 'pickup' : '');
+    const sender = clientById(o.senderId);
+    const cash = cashToCollect(o);
+    const tel = t => '<a class="btn btn-ghost btn-xs" href="tel:' + esc(String(t).replace(/\s/g,'')) + '">📞</a>';
+    return '<div class="job ' + cls + '">' +
+      '<div class="job-top"><span class="ref">' + esc(o.ref) + '</span>' +
+        '<span style="font-size:13px;color:var(--txt-2)">' + esc(o.description || 'Colis') + '</span>' +
+        '<span class="pill ' + o.status + '">' + ORDER_STATUS[o.status] + '</span></div>' +
+
+      '<div class="job-leg"><span class="ico">🏪</span><div style="flex:1">' +
+        '<div class="lbl">Retirer chez</div>' +
+        '<div class="val">' + esc(senderLabel(o)) + '</div>' +
+        '<div class="sub">' + esc(o.pickup || 'Agence') + '</div>' +
+        (sender && sender.phone ? '<div class="sub">' + esc(sender.phone) + ' ' + tel(sender.phone) + '</div>' : '') +
+      '</div></div>' +
+
+      '<div class="job-leg"><span class="ico">📍</span><div style="flex:1">' +
+        '<div class="lbl">Livrer à</div>' +
+        '<div class="val">' + esc(o.client) + '</div>' +
+        '<div class="sub">' + esc(o.address) + '</div>' +
+        '<div class="sub">' + esc(o.phone) + ' ' + tel(o.phone) + '</div>' +
+      '</div></div>' +
+
+      (cash ? '<div class="job-cash"><span>À encaisser<small>' +
+        (o.payment === 'destinataire' ? 'frais de livraison' : '') +
+        (o.payment === 'destinataire' && o.cod ? ' + ' : '') +
+        (o.cod ? 'contre-remboursement pour la boutique' : '') +
+        '</small></span><span>' + money(cash) + '</span></div>' : '') +
+
+      (done ? '' :
+      '<div class="job-actions">' +
+        (o.status === 'assignee'
+          ? '<button class="btn btn-accent" data-job="' + o.id + '" data-to="en_cours">📦 Colis récupéré</button>'
+          : '<button class="btn btn-accent" data-job="' + o.id + '" data-to="livree">✅ Colis livré</button>') +
+        '<a class="btn btn-ghost" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' +
+          encodeURIComponent((o.status === 'assignee' ? (o.pickup || '') : o.address) + ', Conakry') + '">🗺️ Itinéraire</a>' +
+      '</div>') +
+    '</div>';
+  }
+  function renderRiderPortal() {
+    if (!rider || !$('#rider-jobs')) return;
+    const fresh = riderById(rider.id);
+    if (fresh) rider = fresh;
+    const mine = S.orders.filter(o => o.riderId === rider.id);
+    const active = mine.filter(o => o.status === 'assignee' || o.status === 'en_cours')
+      .sort((a, b) => (a.status === b.status ? 0 : a.status === 'en_cours' ? -1 : 1));
+    const doneToday = mine.filter(o => o.status === 'livree' && isToday(o.updatedAt || o.createdAt));
+
+    $('#rider-portal-name').textContent = rider.name;
+    $('#rd-todo').textContent = active.filter(o => o.status === 'assignee').length;
+    $('#rd-route').textContent = active.filter(o => o.status === 'en_cours').length;
+    $('#rd-done').textContent = doneToday.length;
+    $('#rd-cash').textContent = money(active.reduce((s, o) => s + cashToCollect(o), 0));
+    $('#rider-pause').textContent = rider.status === 'en_pause' ? '▶ Reprendre' : '⏸ Pause';
+
+    $('#rider-jobs').innerHTML = active.length ? active.map(jobCard).join('')
+      : '<div class="panel"><div class="empty"><strong>Aucune course en attente</strong>Vous serez averti dès qu\u2019une livraison vous sera confiée.</div></div>';
+    $('#rider-history').innerHTML = doneToday.length ? doneToday.map(jobCard).join('')
+      : '<div class="empty" style="padding:20px">Rien de terminé aujourd\u2019hui.</div>';
+  }
+  function openRiderSession(r) {
+    rider = r;
+    document.body.classList.remove('locked');
+    $('#rider-login').hidden = true;
+    $('#rider-portal').hidden = false;
+    if ('Notification' in window && Notification.permission === 'default') {
+      try { Notification.requestPermission(); } catch (e) {}
+    }
+    renderRiderPortal();
+  }
+
+  /* ======================================================================
      Suivi public
      ====================================================================== */
   function renderPublic(q) {
@@ -1721,6 +1900,7 @@ tbody tr:hover{background:#F8FAFC}
     $('#rider-phone').value = r ? r.phone : '';
     $('#rider-vehicle').value = r ? (r.vehicle||'Moto') : 'Moto';
     $('#rider-plate').value = r ? (r.plate||'') : '';
+    $('#rider-pin-set').value = r ? (r.pin||'') : '';
     $('#rider-status').value = r ? r.status : 'disponible';
     openModal('#rider-modal');
     setTimeout(() => $('#rider-name').focus(), 50);
@@ -1925,6 +2105,11 @@ tbody tr:hover{background:#F8FAFC}
       const btn = e.target.closest('button'); if (!btn) return;
       const d = btn.dataset;
       if (d.redit) openRider(d.redit);
+      if (d.rlink) {
+        const r = riderById(d.rlink); if (!r) return;
+        if (ensureRiderAccess()) save();
+        copyLink(riderLink(r) + '\n\nCode d’accès : ' + r.pin, 'Accès de ' + r.name);
+      }
       if (d.rstatus) {
         const r = riderById(d.rstatus); if (!r) return;
         const keys = Object.keys(RIDER_STATUS);
@@ -2042,11 +2227,15 @@ tbody tr:hover{background:#F8FAFC}
     $('#rider-form').addEventListener('submit', e => {
       e.preventDefault();
       const id = $('#rider-id').value;
+      const pin = $('#rider-pin-set').value.trim();
+      if (pin && !/^\d{4}$/.test(pin)) { toast('Le code d’accès doit faire 4 chiffres.', 'err'); return; }
       const data = { name:$('#rider-name').value.trim(), phone:$('#rider-phone').value.trim(),
         vehicle:$('#rider-vehicle').value, plate:$('#rider-plate').value.trim(), status:$('#rider-status').value };
+      if (pin) data.pin = pin;
       if (id) { Object.assign(riderById(id), data); toast('Livreur mis à jour', 'ok'); }
       else {
-        S.riders.push(Object.assign({ id:uid(), createdAt:new Date().toISOString() }, data));
+        S.riders.push(Object.assign({ id:uid(), createdAt:new Date().toISOString(), token:newToken(),
+          pin: pin || (data.phone.replace(/\D/g,'').slice(-4) || '0000') }, data));
         notify('🛵', data.name + ' a rejoint l\u2019équipe de livraison.'); toast('Livreur ajouté', 'ok');
       }
       save(); renderAll(); closeModal($('#rider-modal'));
@@ -2149,6 +2338,41 @@ tbody tr:hover{background:#F8FAFC}
     });
   }
 
+  function bindRider() {
+    $('#rider-pin-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const r = S.riders.filter(x => x.token === riderToken)[0];
+      if (!r) { $('#rider-pin-error').textContent = 'Lien invalide. Demandez-en un nouveau à l’agence.'; return; }
+      if (String($('#rider-pin').value).trim() !== String(r.pin)) {
+        $('#rider-pin-error').textContent = 'Code incorrect.'; return;
+      }
+      localStorage.setItem(RIDER_SESSION, r.token);
+      openRiderSession(r);
+      toast('Bonjour ' + r.name.split(' ')[0]);
+    });
+    $('#rider-quit').addEventListener('click', () => {
+      localStorage.removeItem(RIDER_SESSION);
+      rider = null;
+      $('#rider-portal').hidden = true; $('#rider-login').hidden = false;
+      $('#rider-pin').value = ''; $('#rider-pin-error').textContent = '';
+    });
+    $('#rider-pause').addEventListener('click', () => {
+      const r = riderById(rider.id); if (!r) return;
+      r.status = r.status === 'en_pause' ? 'disponible' : 'en_pause';
+      save(); renderRiderPortal();
+      toast(r.status === 'en_pause' ? 'Vous êtes en pause' : 'De retour en service', 'ok');
+    });
+    $('#rider-jobs').addEventListener('click', e => {
+      const b = e.target.closest('[data-job]'); if (!b) return;
+      const o = S.orders.filter(x => x.id === b.dataset.job)[0]; if (!o) return;
+      const to = b.dataset.to;
+      if (to === 'livree' && !confirm('Confirmer la livraison de ' + o.ref + ' à ' + o.client + ' ?')) return;
+      o.status = to; pushHistory(o, to);
+      save(); renderRiderPortal();
+      toast(to === 'en_cours' ? 'Colis récupéré, bonne route' : o.ref + ' livrée. Merci !', 'ok');
+    });
+  }
+
   function bindPublic() {
     $('#pub-search').addEventListener('click', () => renderPublic($('#pub-query').value.trim()));
     $('#pub-query').addEventListener('keydown', e => { if (e.key === 'Enter') renderPublic(e.target.value.trim()); });
@@ -2167,7 +2391,8 @@ tbody tr:hover{background:#F8FAFC}
       { name:'Karim Camara', phone:'622 45 12 09', vehicle:'Moto', plate:'RC-4521-A', status:'disponible' },
       { name:'Aissatou Barry', phone:'620 78 33 41', vehicle:'Scooter', plate:'RC-1180-B', status:'disponible' },
       { name:'Ousmane Sylla', phone:'628 90 55 17', vehicle:'Voiture', plate:'RC-7702-C', status:'en_pause' }
-    ].map(r => Object.assign({ id:uid(), createdAt:new Date().toISOString() }, r));
+    ].map(r => Object.assign({ id:uid(), createdAt:new Date().toISOString(), token:newToken(),
+        pin: r.phone.replace(/\D/g,'').slice(-4) }, r));
     S.riders = riders;
 
     const shopHash = await hash('boutique123');
@@ -2226,6 +2451,7 @@ tbody tr:hover{background:#F8FAFC}
     if (MODE === 'suivi') {
       document.body.classList.remove('locked');
       $('.app').remove(); $('#login-screen').remove(); $('#shop-login').remove(); $('#portal').remove();
+      $('#rider-login').remove(); $('#rider-portal').remove();
       $('#public').hidden = false;
       document.title = 'LivraPro — suivre mon colis';
       bindPublic();
@@ -2243,8 +2469,31 @@ tbody tr:hover{background:#F8FAFC}
       return;
     }
 
+    if (MODE === 'livreur') {
+      $('.app').remove(); $('#login-screen').remove(); $('#shop-login').remove();
+      $('#portal').remove(); $('#public').remove();
+      document.title = 'LivraPro — mes courses';
+      riderToken = decodeURIComponent(location.hash.slice(1)) || P.get('t') || '';
+      bindRider();
+      await pull();
+      if (ensureRiderAccess()) save();
+      if (!riderToken) riderToken = localStorage.getItem(RIDER_SESSION) || '';
+      const r = S.riders.filter(x => x.token === riderToken)[0];
+      const remembered = localStorage.getItem(RIDER_SESSION) === riderToken;
+      if (r && remembered) openRiderSession(r);
+      else {
+        $('#rider-login').hidden = false;
+        if (r) { $('#rider-hello').textContent = 'Bonjour ' + r.name.split(' ')[0]; }
+        else if (riderToken) $('#rider-pin-error').textContent = 'Lien inconnu. Demandez-en un nouveau à l’agence.';
+        setTimeout(() => $('#rider-pin').focus(), 120);
+      }
+      setInterval(async () => { await pull(); renderRiderPortal(); }, 15000);
+      return;
+    }
+
     if (MODE === 'boutique') {
       $('.app').remove(); $('#login-screen').remove(); $('#public').remove();
+      $('#rider-login').remove(); $('#rider-portal').remove();
       document.title = 'LivraPro — espace boutique';
       $('#shop-login').hidden = false;
       bindShop();
@@ -2258,6 +2507,8 @@ tbody tr:hover{background:#F8FAFC}
 
     /* Espace agence */
     $('#shop-login').remove(); $('#portal').remove(); $('#public').remove();
+    $('#rider-login').remove(); $('#rider-portal').remove();
+    if (ensureRiderAccess()) save();
     $('#currency-select').value = S.settings.currency;
     $('#setting-sound').checked = !!S.settings.sound;
     $('#setting-native').checked = !!S.settings.native;
