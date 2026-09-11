@@ -247,8 +247,8 @@ tbody tr:hover{background:#F8FAFC}
 .rider-stats{display:flex;gap:18px;margin:13px 0;padding:11px 0;border-top:1px dashed var(--line);border-bottom:1px dashed var(--line)}
 .rider-stat b{display:block;font-size:17px;font-weight:800;font-variant-numeric:tabular-nums}
 .rider-stat span{font-size:11.5px;color:var(--txt-2)}
-.rider-foot{display:flex;align-items:center;gap:6px}
-.rider-foot .icon-btn{margin-left:auto}
+.rider-foot{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.rider-foot .btn,.rider-foot .icon-btn{flex:none}
 .rider-line{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line-soft)}
 .rider-line:last-child{border-bottom:none}
 .rider-line .rider-avatar{width:33px;height:33px;font-size:13px;border-radius:9px}
@@ -2439,12 +2439,22 @@ tbody tr:hover{background:#F8FAFC}
       }
       if (d.rdel) {
         const r = riderById(d.rdel); if (!r) return;
-        if (S.orders.some(o => o.riderId === r.id && o.status !== 'livree' && o.status !== 'annulee')) {
-          toast('Ce livreur a des courses en cours. Réassignez-les d\u2019abord.', 'err'); return;
-        }
-        if (confirm('Supprimer le livreur ' + r.name + ' ?')) {
-          S.riders = S.riders.filter(x => x.id !== r.id); save(); renderAll(); toast('Livreur supprimé');
-        }
+        const busy = S.orders.filter(o => o.riderId === r.id && o.status !== 'livree' && o.status !== 'annulee');
+        const msg = busy.length
+          ? 'Supprimer ' + r.name + ' ?\n\n' + busy.length + ' course(s) lui sont encore assignées : '
+            + 'elles repasseront « en attente » et devront être confiées à un autre livreur.'
+          : 'Supprimer le livreur ' + r.name + ' ?';
+        if (!confirm(msg)) return;
+        busy.forEach(o => {
+          o.riderId = '';
+          o.status = 'en_attente';
+          o.history = (o.history || []).filter(h => h.status === 'en_attente');
+          o.updatedAt = new Date().toISOString();
+        });
+        S.riders = S.riders.filter(x => x.id !== r.id);
+        save(); renderAll();
+        toast(busy.length ? r.name + ' supprimé, ' + busy.length + ' course(s) remise(s) en attente'
+                          : 'Livreur supprimé', 'ok');
       }
     });
 
@@ -2458,12 +2468,16 @@ tbody tr:hover{background:#F8FAFC}
       }
       if (d.cdel) {
         const c = clientById(d.cdel); if (!c) return;
-        if (S.orders.some(o => o.senderId === c.id && o.status !== 'livree' && o.status !== 'annulee')) {
-          toast('Cette boutique a des courses en cours.', 'err'); return;
-        }
-        if (confirm('Supprimer la boutique ' + c.name + ' ? Son accès sera coupé.')) {
-          S.clients = S.clients.filter(x => x.id !== c.id); save(); renderAll(); toast('Boutique supprimée');
-        }
+        const busy = S.orders.filter(o => o.senderId === c.id && o.status !== 'livree' && o.status !== 'annulee');
+        const msg = busy.length
+          ? 'Supprimer ' + c.name + ' ?\n\n' + busy.length + ' course(s) en cours pour cette boutique '
+            + 'resteront dans vos livraisons, à son nom. Son accès au portail sera coupé.'
+          : 'Supprimer la boutique ' + c.name + ' ? Son accès sera coupé.';
+        if (!confirm(msg)) return;
+        /* On garde le nom sur les courses pour ne pas perdre l'historique. */
+        S.orders.filter(o => o.senderId === c.id).forEach(o => { o.senderName = c.name; o.senderId = ''; });
+        S.clients = S.clients.filter(x => x.id !== c.id);
+        save(); renderAll(); toast('Boutique supprimée', 'ok');
       }
     });
 
