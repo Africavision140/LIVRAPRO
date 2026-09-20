@@ -1189,6 +1189,10 @@ tbody tr:hover{background:#F8FAFC}
       </div>
       <div style="padding:18px">
         <canvas id="badge-canvas" style="width:100%;height:auto;border-radius:10px;border:1px solid var(--line);display:block"></canvas>
+        <p style="font-size:12.5px;color:var(--txt-2);margin-top:10px">
+          Pour tester le QR, scannez le badge <strong>imprimé</strong> ou l'image
+          téléchargée ouverte en taille réelle. L'aperçu ci-dessus est réduit à l'écran.
+        </p>
         <div class="link-actions">
           <button class="btn btn-accent" id="badge-dl">⬇️ Télécharger PNG</button>
           <button class="btn btn-ghost" id="badge-share" hidden>Partager…</button>
@@ -1527,7 +1531,8 @@ tbody tr:hover{background:#F8FAFC}
     });
     return 'LP-' + day + '-' + String(n).padStart(3, '0');
   }
-  const newToken = () => (Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10));
+  /* 10 caractères suffisent largement et allègent le QR d'une version. */
+  const newToken = () => (Math.random().toString(36).slice(2, 7) + Math.random().toString(36).slice(2, 7));
   function ensureRiderAccess() {
     let touched = false;
     S.riders.forEach(r => {
@@ -2444,18 +2449,23 @@ tbody tr:hover{background:#F8FAFC}
     return best;
   }
 
-  /* Dessine un QR dans un carré, marge blanche de 4 modules comprise. */
+  /* Dessine un QR dans un carré, marge blanche comprise.
+     Chaque module fait un nombre entier de pixels : sans ça, les bords
+     sont lissés et les modules débordent les uns sur les autres, ce qui
+     empêche la lecture. */
   function drawQR(ctx, text, x, y, box) {
     let mat;
     try { mat = qrMatrix(text); } catch (e) { return false; }
-    const n = mat.length, quiet = 4, unit = box / (n + quiet * 2);
+    const n = mat.length, quiet = 3, units = n + quiet * 2;
+    const unit = Math.floor(box / units);
+    if (unit < 2) return false;                      // trop petit pour être lisible
+    const drawn = unit * units, off = Math.round((box - drawn) / 2);
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(x, y, box, box);
-    ctx.fillStyle = '#0E2436';
+    ctx.fillStyle = '#000000';                       // noir franc : meilleur contraste
     for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
       if (!mat[r][c]) continue;
-      ctx.fillRect(x + (c + quiet) * unit, y + (r + quiet) * unit,
-                   Math.ceil(unit) , Math.ceil(unit));
+      ctx.fillRect(x + off + (c + quiet) * unit, y + off + (r + quiet) * unit, unit, unit);
     }
     return true;
   }
@@ -2543,7 +2553,7 @@ tbody tr:hover{background:#F8FAFC}
     x.restore();
 
     /* Nom et informations */
-    const qrBox = mm(17), qrX = cv.width - mm(3.6) - qrBox, qrY = mm(14.5);
+    const qrBox = mm(20), qrX = cv.width - mm(3.4) - qrBox, qrY = mm(13.2);
     drawQR(x, riderLink(r), qrX, qrY, qrBox);
     const cx = mm(27.5), cw = qrX - cx - mm(2.5);
     x.fillStyle = '#12242F';
@@ -2609,7 +2619,7 @@ tbody tr:hover{background:#F8FAFC}
     const photo = r.photo
       ? '<img class="ph" src="' + r.photo + '" alt="">'
       : '<div class="noph">' + esc(initials(r.name)) + '</div>';
-    const qr = qrDataUrl(riderLink(r), 420);
+    const qr = qrDataUrl(riderLink(r), 480);
     const line = (l, v) => '<tr><th>' + l + '</th><td>' + esc(v || '—') + '</td></tr>';
     w.document.write('<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">' +
       '<title>Badge — ' + esc(r.name) + '</title><style>' +
@@ -2624,7 +2634,7 @@ tbody tr:hover{background:#F8FAFC}
         'background-image:url(' + MARK + ')}' +
       '.bb{flex:1;display:flex;gap:4mm;padding:4mm}' +
       '.bb img.ph,.noph{width:21mm;height:27mm;border-radius:2mm;object-fit:cover;flex:none;background:#EEF2F6}' +
-      '.bb img.qr{width:17mm;height:17mm;flex:none;align-self:flex-start}' +
+      '.bb img.qr{width:20mm;height:20mm;flex:none;align-self:flex-start;image-rendering:pixelated}' +
       '.noph{display:flex;align-items:center;justify-content:center;font-size:9mm;font-weight:800;color:#8698A6}' +
       '.nm{font-size:5mm;font-weight:800;letter-spacing:-.3px;line-height:1.1}' +
       'table{border-collapse:collapse;margin-top:2mm;width:100%}' +
