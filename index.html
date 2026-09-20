@@ -4,8 +4,35 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0E2436">
-<meta name="description" content="LivraPro - gestion et suivi des livraisons">
-<title>LivraPro - Plateforme de gestion de livraisons</title>
+<meta name="description" content="LivraPro, service de livraison de colis à Conakry : enlèvement chez les boutiques, livraison à domicile, suivi en direct et paiement à la réception.">
+<title>LivraPro — Livraison de colis à Conakry</title>
+<link rel="canonical" href="https://livrapro.app/">
+<meta name="robots" content="index, follow">
+
+<!-- Aperçu lors d'un partage WhatsApp, Facebook, LinkedIn -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="LivraPro">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:url" content="https://livrapro.app/">
+<meta property="og:title" content="LivraPro — Livraison de colis à Conakry">
+<meta property="og:description" content="Confiez vos colis, suivez chaque course en direct. Service de livraison pour les boutiques et les particuliers à Conakry.">
+<meta property="og:image" content="https://livrapro.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": "LivraPro",
+  "description": "Service de livraison de colis \u00e0 Conakry : enl\u00e8vement chez les boutiques, livraison \u00e0 domicile, suivi en direct.",
+  "url": "https://livrapro.app/",
+  "image": "https://livrapro.app/og.png",
+  "areaServed": { "@type": "City", "name": "Conakry" },
+  "address": { "@type": "PostalAddress", "addressLocality": "Conakry", "addressCountry": "GN" }
+}
+</script>
 <link rel="manifest" id="manifest-link" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -382,6 +409,9 @@ tbody tr:hover{background:#F8FAFC}
 .role-txt b{display:block;font-size:15.5px;font-weight:700}
 .role-txt span{font-size:13px;color:var(--txt-2)}
 .btn-switch{margin-left:6px}
+.home-about{font-size:13px;line-height:1.65;color:var(--txt-2);margin-top:14px;
+  padding-top:14px;border-top:1px solid var(--line-soft)}
+.home-about strong{color:var(--txt)}
 
 #btn-install{display:none}
 #btn-install.on{display:inline-flex}
@@ -584,6 +614,12 @@ tbody tr:hover{background:#F8FAFC}
           <span class="role-txt"><b>Un livreur</b><span>Voir mes courses du jour</span></span>
         </button>
       </div>
+      <p class="home-about">
+        <strong>LivraPro</strong> livre vos colis à Conakry. Les boutiques confient leurs
+        expéditions depuis leur espace, un livreur passe les retirer, et le destinataire
+        suit sa course en direct jusqu'à sa porte. Paiement par l'expéditeur ou à la
+        réception, avec encaissement pour le compte de la boutique.
+      </p>
       <p class="login-hint">Vous cherchez seulement à suivre un colis ?
         <a href="s.html" style="color:var(--amber-d);font-weight:700">Suivre un colis</a></p>
     </div>
@@ -1206,7 +1242,7 @@ tbody tr:hover{background:#F8FAFC}
      Avec un projectId Firestore, tout le monde voit les mêmes livraisons.
      ====================================================================== */
   const CLOUD = {
-    projectId: 'livrapro-17494',   // mettre '' pour rester 100 % local
+    projectId: 'africa-vision-3b38f',   // mettre '' pour rester 100 % local
     prefix: 'livrapro_'
   };
 
