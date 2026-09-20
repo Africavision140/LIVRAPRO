@@ -1796,6 +1796,7 @@ tbody tr:hover{background:#F8FAFC}
         '<div class="rider-foot">' +
           '<button class="btn btn-ghost btn-xs" data-rlink="' + r.id + '">🔗 Lien</button>' +
           '<button class="btn btn-ghost btn-xs" data-rbadge="' + r.id + '">🪪 Badge</button>' +
+          '<button class="btn btn-ghost btn-xs" data-rfiche="' + r.id + '">📄 Fiche</button>' +
           '<button class="btn btn-ghost btn-xs" data-rstatus="' + r.id + '">Statut</button>' +
           '<a class="btn btn-ghost btn-xs" href="tel:' + esc(String(r.phone).replace(/\s/g,'')) + '">📞 Appeler</a>' +
           '<button class="icon-btn" data-redit="' + r.id + '" title="Modifier">✏️</button>' +
@@ -2194,6 +2195,279 @@ tbody tr:hover{background:#F8FAFC}
     setTimeout(() => { try { w.print(); } catch (e) {} }, 350);
   }
 
+  /* ==========================================================================
+     Encodeur QR minimal — mode octet, correction niveau M, versions 1 à 10.
+     Aucune dépendance. Renvoie une matrice de booléens (true = module noir).
+     ========================================================================== */
+  function qrMatrix(text) {
+    /* ---- octets UTF-8 ---- */
+    const data = [];
+    for (const ch of unescape(encodeURIComponent(text))) data.push(ch.charCodeAt(0));
+
+    /* Capacités en octets, niveau M, versions 1 à 10. */
+    const CAP = [14, 26, 42, 62, 84, 106, 122, 152, 180, 213];
+    /* Nombre de blocs Reed-Solomon, niveau M. */
+    const NBLOCKS = [1, 1, 1, 2, 2, 4, 4, 4, 5, 5];
+    /* Centres des motifs d'alignement. */
+    const ALIGN = [[], [6,18], [6,22], [6,26], [6,30], [6,34],
+                   [6,22,38], [6,24,42], [6,26,46], [6,28,50]];
+
+    let version = 0;
+    for (let v = 1; v <= 10; v++) if (data.length <= CAP[v-1]) { version = v; break; }
+    if (!version) throw new Error('texte trop long pour un QR version 10');
+
+    const size = 17 + 4 * version;
+    const cci = version >= 10 ? 16 : 8;            // longueur du champ « nombre d'octets »
+
+    /* ---- modules réservés aux motifs de service ---- */
+    const reserved = Array.from({length:size}, () => new Array(size).fill(false));
+    const m = Array.from({length:size}, () => new Array(size).fill(false));
+    const set = (r, c, v) => { m[r][c] = v; reserved[r][c] = true; };
+
+    function finder(r0, c0) {
+      for (let r = -1; r <= 7; r++) for (let c = -1; c <= 7; c++) {
+        const r1 = r0 + r, c1 = c0 + c;
+        if (r1 < 0 || c1 < 0 || r1 >= size || c1 >= size) continue;
+        const on = (r >= 0 && r <= 6 && (c === 0 || c === 6)) ||
+                   (c >= 0 && c <= 6 && (r === 0 || r === 6)) ||
+                   (r >= 2 && r <= 4 && c >= 2 && c <= 4);
+        set(r1, c1, on);
+      }
+    }
+    finder(0, 0); finder(0, size - 7); finder(size - 7, 0);
+
+    for (let i = 8; i < size - 8; i++) {           // motifs de synchronisation
+      set(6, i, i % 2 === 0);
+      set(i, 6, i % 2 === 0);
+    }
+    const centers = ALIGN[version - 1];
+    for (const r0 of centers) for (const c0 of centers) {
+      if ((r0 <= 8 && c0 <= 8) || (r0 <= 8 && c0 >= size - 9) || (r0 >= size - 9 && c0 <= 8)) continue;
+      for (let r = -2; r <= 2; r++) for (let c = -2; c <= 2; c++)
+        set(r0 + r, c0 + c, Math.max(Math.abs(r), Math.abs(c)) !== 1);
+    }
+    set(size - 8, 8, true);                        // module toujours noir
+
+    for (let i = 0; i < 9; i++) {                  // zones d'information de format
+      if (!reserved[8][i]) set(8, i, false);
+      if (!reserved[i][8]) set(i, 8, false);
+    }
+    for (let i = 0; i < 8; i++) {
+      if (!reserved[8][size - 1 - i]) set(8, size - 1 - i, false);
+      if (!reserved[size - 1 - i][8]) set(size - 1 - i, 8, false);
+    }
+    if (version >= 7) {                            // information de version
+      for (let i = 0; i < 6; i++) for (let j = 0; j < 3; j++) {
+        set(size - 11 + j, i, false);
+        set(i, size - 11 + j, false);
+      }
+    }
+
+    /* Nombre total de mots de code, déduit des modules disponibles. */
+    let free = 0;
+    for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) if (!reserved[r][c]) free++;
+    const total = Math.floor(free / 8);
+    const dataWords = CAP[version - 1] + (cci === 8 ? 2 : 3);
+    const blocks = NBLOCKS[version - 1];
+    const ecPerBlock = (total - dataWords) / blocks;
+    if (!Number.isInteger(ecPerBlock)) throw new Error('table incohérente pour la version ' + version);
+
+    /* ---- flux binaire ---- */
+    const bits = [];
+    const push = (val, len) => { for (let i = len - 1; i >= 0; i--) bits.push((val >> i) & 1); };
+    push(4, 4); push(data.length, cci);
+    for (const b of data) push(b, 8);
+    for (let i = 0; i < 4 && bits.length < dataWords * 8; i++) bits.push(0);
+    while (bits.length % 8) bits.push(0);
+    const words = [];
+    for (let i = 0; i < bits.length; i += 8)
+      words.push(bits.slice(i, i + 8).reduce((a, b) => (a << 1) | b, 0));
+    const PAD = [0xEC, 0x11];
+    for (let i = 0; words.length < dataWords; i++) words.push(PAD[i % 2]);
+
+    /* ---- arithmétique de Galois GF(256) ---- */
+    const EXP = new Array(512), LOG = new Array(256);
+    for (let i = 0, x = 1; i < 255; i++) {
+      EXP[i] = x; LOG[x] = i;
+      x <<= 1; if (x & 0x100) x ^= 0x11D;
+    }
+    for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
+    const mul = (a, b) => (a === 0 || b === 0) ? 0 : EXP[LOG[a] + LOG[b]];
+
+    function generator(n) {
+      let g = [1];
+      for (let i = 0; i < n; i++) {
+        const ng = new Array(g.length + 1).fill(0);
+        for (let j = 0; j < g.length; j++) {
+          ng[j] ^= g[j];                       // terme en x
+          ng[j + 1] ^= mul(g[j], EXP[i]);      // terme constant
+        }
+        g = ng;
+      }
+      return g;
+    }
+    function ecFor(block, n) {
+      const g = generator(n);
+      const res = block.concat(new Array(n).fill(0));
+      for (let i = 0; i < block.length; i++) {
+        const f = res[i];
+        if (!f) continue;
+        for (let j = 0; j < g.length; j++) res[i + j] ^= mul(g[j], f);
+      }
+      return res.slice(block.length);
+    }
+
+    /* ---- découpage en blocs : les blocs courts d'abord ---- */
+    const shortLen = Math.floor(dataWords / blocks);
+    const longCount = dataWords % blocks;
+    const dataBlocks = [], ecBlocks = [];
+    let pos = 0;
+    for (let b = 0; b < blocks; b++) {
+      const len = shortLen + (b >= blocks - longCount ? 1 : 0);
+      const blk = words.slice(pos, pos + len); pos += len;
+      dataBlocks.push(blk);
+      ecBlocks.push(ecFor(blk, ecPerBlock));
+    }
+    const stream = [];
+    const maxData = Math.max(...dataBlocks.map(b => b.length));
+    for (let i = 0; i < maxData; i++)
+      for (const b of dataBlocks) if (i < b.length) stream.push(b[i]);
+    for (let i = 0; i < ecPerBlock; i++)
+      for (const b of ecBlocks) stream.push(b[i]);
+
+    /* ---- placement en zigzag ---- */
+    const place = (matrix) => {
+      let bit = 0, up = true;
+      for (let col = size - 1; col > 0; col -= 2) {
+        if (col === 6) col--;
+        for (let i = 0; i < size; i++) {
+          const row = up ? size - 1 - i : i;
+          for (let k = 0; k < 2; k++) {
+            const c = col - k;
+            if (reserved[row][c]) continue;
+            const byte = stream[bit >> 3];
+            matrix[row][c] = byte !== undefined && ((byte >> (7 - (bit & 7))) & 1) === 1;
+            bit++;
+          }
+        }
+        up = !up;
+      }
+    };
+    place(m);
+
+    /* ---- masques ---- */
+    const MASKS = [
+      (r, c) => (r + c) % 2 === 0,
+      (r) => r % 2 === 0,
+      (r, c) => c % 3 === 0,
+      (r, c) => (r + c) % 3 === 0,
+      (r, c) => (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0,
+      (r, c) => ((r * c) % 2) + ((r * c) % 3) === 0,
+      (r, c) => (((r * c) % 2) + ((r * c) % 3)) % 2 === 0,
+      (r, c) => (((r + c) % 2) + ((r * c) % 3)) % 2 === 0
+    ];
+    const FORMAT_POLY = 0x537, FORMAT_MASK = 0x5412;
+    function formatBits(maskIdx) {
+      let v = (0 << 3) | maskIdx;            // 00 = niveau M
+      let d = v << 10;
+      for (let i = 4; i >= 0; i--) if (d & (1 << (i + 10))) d ^= FORMAT_POLY << i;
+      return ((v << 10) | d) ^ FORMAT_MASK;
+    }
+    function writeFormat(matrix, maskIdx) {
+      const f = formatBits(maskIdx);
+      const bitAt = i => ((f >> i) & 1) === 1;
+      for (let i = 0; i <= 5; i++) matrix[8][i] = bitAt(i);
+      matrix[8][7] = bitAt(6);
+      matrix[8][8] = bitAt(7);
+      matrix[7][8] = bitAt(8);
+      for (let i = 9; i <= 14; i++) matrix[14 - i][8] = bitAt(i);
+      for (let i = 0; i <= 7; i++) matrix[size - 1 - i][8] = bitAt(i);
+      for (let i = 8; i <= 14; i++) matrix[8][size - 15 + i] = bitAt(i);
+      matrix[size - 8][8] = true;
+    }
+    const VERSION_POLY = 0x1F25;
+    function writeVersion(matrix) {
+      if (version < 7) return;
+      let d = version << 12;
+      for (let i = 5; i >= 0; i--) if (d & (1 << (i + 12))) d ^= VERSION_POLY << i;
+      const v = (version << 12) | d;
+      for (let i = 0; i < 18; i++) {
+        const on = ((v >> i) & 1) === 1;
+        matrix[Math.floor(i / 3)][size - 11 + (i % 3)] = on;
+        matrix[size - 11 + (i % 3)][Math.floor(i / 3)] = on;
+      }
+    }
+
+    function penalty(matrix) {
+      let p = 0;
+      for (let r = 0; r < size; r++) {
+        for (let dir = 0; dir < 2; dir++) {
+          let run = 1;
+          for (let c = 1; c < size; c++) {
+            const a = dir ? matrix[c][r] : matrix[r][c];
+            const b = dir ? matrix[c - 1][r] : matrix[r][c - 1];
+            if (a === b) { run++; if (run === 5) p += 3; else if (run > 5) p++; }
+            else run = 1;
+          }
+        }
+      }
+      for (let r = 0; r < size - 1; r++) for (let c = 0; c < size - 1; c++) {
+        const v = matrix[r][c];
+        if (v === matrix[r][c+1] && v === matrix[r+1][c] && v === matrix[r+1][c+1]) p += 3;
+      }
+      const PAT = [true,false,true,true,true,false,true,false,false,false,false];
+      for (let r = 0; r < size; r++) for (let c = 0; c + 11 <= size; c++) {
+        let hit = true, hit2 = true;
+        for (let k = 0; k < 11; k++) {
+          if (matrix[r][c + k] !== PAT[k]) hit = false;
+          if (matrix[c + k][r] !== PAT[k]) hit2 = false;
+        }
+        if (hit) p += 40;
+        if (hit2) p += 40;
+      }
+      let dark = 0;
+      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) if (matrix[r][c]) dark++;
+      p += Math.floor(Math.abs(dark * 100 / (size * size) - 50) / 5) * 10;
+      return p;
+    }
+
+    let best = null, bestScore = Infinity;
+    for (let k = 0; k < 8; k++) {
+      const cand = m.map(row => row.slice());
+      for (let r = 0; r < size; r++) for (let c = 0; c < size; c++)
+        if (!reserved[r][c] && MASKS[k](r, c)) cand[r][c] = !cand[r][c];
+      writeFormat(cand, k);
+      writeVersion(cand);
+      const sc = penalty(cand);
+      if (sc < bestScore) { bestScore = sc; best = cand; }
+    }
+    return best;
+  }
+
+  /* Dessine un QR dans un carré, marge blanche de 4 modules comprise. */
+  function drawQR(ctx, text, x, y, box) {
+    let mat;
+    try { mat = qrMatrix(text); } catch (e) { return false; }
+    const n = mat.length, quiet = 4, unit = box / (n + quiet * 2);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(x, y, box, box);
+    ctx.fillStyle = '#0E2436';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      if (!mat[r][c]) continue;
+      ctx.fillRect(x + (c + quiet) * unit, y + (r + quiet) * unit,
+                   Math.ceil(unit) , Math.ceil(unit));
+    }
+    return true;
+  }
+  /* Version image, pour les fenêtres d'impression. */
+  function qrDataUrl(text, px) {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = px;
+    const ctx = cv.getContext('2d');
+    if (!ctx || !drawQR(ctx, text, 0, 0, px)) return '';
+    return cv.toDataURL('image/png');
+  }
+
   /* ---------- Badge en image (85,6 × 54 mm à 300 ppp) ---------- */
   let badgeRider = null;
   function loadImg(src) {
@@ -2255,7 +2529,7 @@ tbody tr:hover{background:#F8FAFC}
     x.textAlign = 'right'; x.fillText('LIVREUR', cv.width - mm(4), mm(5.2)); x.textAlign = 'left';
 
     /* Photo */
-    const px = mm(4), py = mm(13.5), pw = mm(24), ph = mm(30);
+    const px = mm(4), py = mm(14), pw = mm(21), ph = mm(27);
     x.save(); roundPath(x, px, py, pw, ph, mm(2)); x.clip();
     x.fillStyle = '#EEF2F6'; x.fillRect(px, py, pw, ph);
     const img = r.photo ? await loadImg(r.photo) : null;
@@ -2269,7 +2543,9 @@ tbody tr:hover{background:#F8FAFC}
     x.restore();
 
     /* Nom et informations */
-    const cx = mm(31.5), cw = cv.width - cx - mm(4);
+    const qrBox = mm(17), qrX = cv.width - mm(3.6) - qrBox, qrY = mm(14.5);
+    drawQR(x, riderLink(r), qrX, qrY, qrBox);
+    const cx = mm(27.5), cw = qrX - cx - mm(2.5);
     x.fillStyle = '#12242F';
     const ns = fitText(x, r.name, cw, mm(5), '800');
     x.font = '800 ' + ns + 'px system-ui, "Segoe UI", Roboto, Arial, sans-serif';
@@ -2331,8 +2607,9 @@ tbody tr:hover{background:#F8FAFC}
     if (!w) { toast('Autorisez les fenêtres pop-up pour imprimer le badge.', 'err'); return; }
     const mat = String(r.token || '').slice(0, 6).toUpperCase() || '—';
     const photo = r.photo
-      ? '<img src="' + r.photo + '" alt="">'
+      ? '<img class="ph" src="' + r.photo + '" alt="">'
       : '<div class="noph">' + esc(initials(r.name)) + '</div>';
+    const qr = qrDataUrl(riderLink(r), 420);
     const line = (l, v) => '<tr><th>' + l + '</th><td>' + esc(v || '—') + '</td></tr>';
     w.document.write('<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">' +
       '<title>Badge — ' + esc(r.name) + '</title><style>' +
@@ -2346,7 +2623,8 @@ tbody tr:hover{background:#F8FAFC}
       '.bh .mk{width:6mm;height:6mm;border-radius:1.5mm;flex:none;background:#fff center/80% auto no-repeat;' +
         'background-image:url(' + MARK + ')}' +
       '.bb{flex:1;display:flex;gap:4mm;padding:4mm}' +
-      '.bb img,.noph{width:24mm;height:30mm;border-radius:2mm;object-fit:cover;flex:none;background:#EEF2F6}' +
+      '.bb img.ph,.noph{width:21mm;height:27mm;border-radius:2mm;object-fit:cover;flex:none;background:#EEF2F6}' +
+      '.bb img.qr{width:17mm;height:17mm;flex:none;align-self:flex-start}' +
       '.noph{display:flex;align-items:center;justify-content:center;font-size:9mm;font-weight:800;color:#8698A6}' +
       '.nm{font-size:5mm;font-weight:800;letter-spacing:-.3px;line-height:1.1}' +
       'table{border-collapse:collapse;margin-top:2mm;width:100%}' +
@@ -2364,12 +2642,67 @@ tbody tr:hover{background:#F8FAFC}
         line('Véhicule', r.vehicle) +
         line('Immat.', r.plate) +
         '<tr><th>Matricule</th><td class="mat">' + mat + '</td></tr>' +
-      '</table></div></div><div class="bf"></div></div>' +
+      '</table></div>' + (qr ? '<img class="qr" src="' + qr + '" alt="">' : '') +
+      '</div><div class="bf"></div></div>' +
       '<p class="note">Imprimez, découpez sur le bord de la carte, puis glissez dans un porte-badge. ' +
       'Le code d’accès ne figure volontairement pas sur le badge.</p>' +
       '</body></html>');
     w.document.close();
     setTimeout(() => { try { w.print(); } catch (e) {} }, 400);
+  }
+
+  /* Fiche d'accès : remise en main propre au livreur, jamais portée sur soi.
+     Elle porte le code à 4 chiffres, contrairement au badge. */
+  function printFiche(r) {
+    const w = window.open('', '_blank', 'width=760,height=900');
+    if (!w) { toast('Autorisez les fenêtres pop-up pour imprimer la fiche.', 'err'); return; }
+    const lien = riderLink(r);
+    const qr = qrDataUrl(lien, 560);
+    const photo = r.photo ? '<img class="ph" src="' + r.photo + '" alt="">' : '';
+    const etapes = [
+      'Scannez le code ci-contre, ou ouvrez ' + LOC.root.replace(/^https?:\/\//, '') + 'l.html',
+      'Entrez votre code à 4 chiffres',
+      'Vos courses du jour s’affichent',
+      'Le code n’est demandé qu’une fois par téléphone'
+    ].map(t => '<li>' + esc(t) + '</li>').join('');
+    w.document.write('<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">' +
+      '<title>Fiche d\u2019accès — ' + esc(r.name) + '</title><style>' +
+      '@page{size:A4;margin:18mm}' +
+      'body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#12242F;margin:0}' +
+      '.logo{width:44mm;display:block;margin-bottom:6mm}' +
+      'h1{font-size:7mm;margin:0 0 1mm;letter-spacing:-.3px}' +
+      '.sub{color:#5C7385;font-size:3.6mm;margin:0 0 8mm}' +
+      '.who{display:flex;gap:6mm;align-items:center;border:1px solid #DBE3EB;border-radius:3mm;padding:5mm;margin-bottom:7mm}' +
+      '.ph{width:26mm;height:32mm;object-fit:cover;border-radius:2mm;flex:none;background:#EEF2F6}' +
+      '.who b{font-size:6mm;display:block;letter-spacing:-.3px}' +
+      '.who span{font-size:3.8mm;color:#5C7385;display:block;margin-top:1mm}' +
+      '.grid{display:flex;gap:7mm;align-items:flex-start}' +
+      '.qr{width:52mm;height:52mm;flex:none;border:1px solid #DBE3EB;border-radius:3mm}' +
+      'ol{margin:0;padding-left:5mm;font-size:3.9mm;line-height:1.9}' +
+      '.code{margin-top:6mm;background:#FFF3D8;border-radius:3mm;padding:5mm;text-align:center}' +
+      '.code small{display:block;font-size:3.2mm;color:#5C7385;font-weight:600;text-transform:uppercase;letter-spacing:.6px}' +
+      '.code b{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14mm;letter-spacing:5mm;display:block;margin-top:2mm}' +
+      '.lien{margin-top:6mm;font-size:3.2mm;color:#5C7385;word-break:break-all}' +
+      '.warn{margin-top:8mm;border-top:1px dashed #999;padding-top:4mm;font-size:3.4mm;color:#A62E20}' +
+      '</style></head><body>' +
+      (LOGO ? '<img class="logo" src="' + LOGO + '" alt="LivraPro">' : '') +
+      '<h1>Fiche d\u2019accès livreur</h1>' +
+      '<p class="sub">À conserver. Ne pas afficher ni glisser dans le porte-badge.</p>' +
+      '<div class="who">' + photo + '<div><b>' + esc(r.name) + '</b>' +
+        '<span>' + esc(r.phone || '') + '</span>' +
+        '<span>' + esc(r.vehicle || '') + (r.plate ? ' · ' + esc(r.plate) : '') + '</span>' +
+        '<span>Matricule ' + esc(String(r.token || '').slice(0,6).toUpperCase()) + '</span></div></div>' +
+      '<div class="grid">' +
+        (qr ? '<img class="qr" src="' + qr + '" alt="">' : '') +
+        '<div style="flex:1"><ol>' + etapes + '</ol>' +
+        '<div class="code"><small>Votre code d\u2019accès</small><b>' + esc(r.pin || '') + '</b></div>' +
+        '<p class="lien">' + esc(lien) + '</p></div>' +
+      '</div>' +
+      '<p class="warn">Ce code ouvre vos courses, les coordonnées des clients et les montants à encaisser. ' +
+      'Ne le communiquez à personne. En cas de perte, prévenez l\u2019agence : elle le changera immédiatement.</p>' +
+      '</body></html>');
+    w.document.close();
+    setTimeout(() => { try { w.print(); } catch (e) {} }, 500);
   }
 
   function go(view) {
@@ -2533,6 +2866,7 @@ tbody tr:hover{background:#F8FAFC}
       const d = btn.dataset;
       if (d.redit) openRider(d.redit);
       if (d.rbadge) { const r = riderById(d.rbadge); if (r) { if (ensureRiderAccess()) save(); openBadge(r); } }
+      if (d.rfiche) { const r = riderById(d.rfiche); if (r) { if (ensureRiderAccess()) save(); printFiche(r); } }
       if (d.rlink) {
         const r = riderById(d.rlink); if (!r) return;
         if (ensureRiderAccess()) save();
