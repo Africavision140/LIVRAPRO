@@ -2,7 +2,7 @@
    LivraPro — service worker
    À INCRÉMENTER À CHAQUE MODIFICATION DE index.html :
    ========================================================================== */
-const VERSION = 'livrapro-v5';
+const VERSION = 'livrapro-v6';
 
 /* Fichiers mis en cache dès l'installation. */
 const SHELL = [
