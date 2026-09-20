@@ -1,0 +1,18 @@
+# LivraPro — https://livrapro.app
+User-agent: *
+Allow: /$
+Allow: /index.html
+Allow: /s.html
+Allow: /suivi.html
+
+# Espaces réservés : rien à indexer derrière une connexion
+Disallow: /app.html
+Disallow: /boutique.html
+Disallow: /l.html
+Disallow: /livreur.html
+Disallow: /*?agence
+Disallow: /*?boutique
+Disallow: /*?livreur
+Disallow: /*?app
+
+Sitemap: https://livrapro.app/sitemap.xml
