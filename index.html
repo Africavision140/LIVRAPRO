@@ -409,6 +409,15 @@ tbody tr:hover{background:#F8FAFC}
 .role-txt b{display:block;font-size:15.5px;font-weight:700}
 .role-txt span{font-size:13px;color:var(--txt-2)}
 .btn-switch{margin-left:6px}
+.install-hint{display:flex;align-items:center;gap:12px;background:var(--amber-soft);
+  border:1px solid #F2DCB6;border-radius:var(--r);padding:12px 14px;margin-bottom:14px}
+.install-hint .ih-ico{font-size:24px;flex:none}
+.install-hint .ih-txt{flex:1;min-width:0}
+.install-hint .ih-txt b{display:block;font-size:14px}
+.install-hint .ih-txt span{font-size:12.5px;color:var(--txt-2)}
+.install-hint .ih-close{font-size:14px;color:var(--txt-2);width:28px;height:28px;border-radius:7px;flex:none}
+.install-hint .ih-close:hover{background:rgba(0,0,0,.06)}
+@media(max-width:560px){.install-hint{flex-wrap:wrap}.install-hint .btn{flex:1}}
 .home-about{font-size:13px;line-height:1.65;color:var(--txt-2);margin-top:14px;
   padding-top:14px;border-top:1px solid var(--line-soft)}
 .home-about strong{color:var(--txt)}
@@ -767,6 +776,7 @@ tbody tr:hover{background:#F8FAFC}
             </select>
           </div>
           <div style="display:flex;gap:10px;">
+            <button class="btn btn-ghost" id="btn-print-badges">🪪 Imprimer tous les badges</button>
             <button class="btn btn-ghost" id="btn-export-riders">⬇️ Exporter CSV</button>
             <button class="btn btn-accent" id="btn-add-rider">+ Ajouter un livreur</button>
           </div>
@@ -931,6 +941,15 @@ tbody tr:hover{background:#F8FAFC}
         <div class="p-stat"><b id="rd-route">0</b><span>En route</span></div>
         <div class="p-stat"><b id="rd-done">0</b><span>Livrées aujourd'hui</span></div>
         <div class="p-stat"><b id="rd-cash" style="font-size:16px">0</b><span>À encaisser</span></div>
+      </div>
+      <div id="rider-install-hint" class="install-hint" hidden>
+        <span class="ih-ico">📲</span>
+        <div class="ih-txt">
+          <b>Installez LivraPro sur votre téléphone</b>
+          <span>Vos courses s'ouvriront d'un geste, et votre badge ouvrira directement l'application.</span>
+        </div>
+        <button class="btn btn-accent btn-sm" id="rider-install-go">Installer</button>
+        <button class="ih-close" id="rider-install-x" aria-label="Fermer">✕</button>
       </div>
       <div id="rider-jobs"></div>
       <details style="margin-top:18px">
@@ -1940,6 +1959,8 @@ tbody tr:hover{background:#F8FAFC}
 
   function openShopSession(c) {
     shop = c;
+    /* L'icône de l'application ouvrira désormais directement cet espace. */
+    try { localStorage.setItem(ROLE_KEY, 'boutique'); } catch (e) {}
     document.body.classList.remove('locked');
     $('#shop-login').hidden = true;
     $('#portal').hidden = false;
@@ -2034,8 +2055,33 @@ tbody tr:hover{background:#F8FAFC}
     $('#rider-pin-label').hidden = false;
     $('#rider-sub').textContent = 'Entrez votre numéro de téléphone et votre code à 4 chiffres.';
   }
+  /* Proposé tant que l'application n'est pas installée ; masqué si le livreur l'a fermé. */
+  function showRiderInstallHint() {
+    const box = $('#rider-install-hint');
+    if (!box || standalone()) return;
+    let dismissed = false;
+    try { dismissed = localStorage.getItem('livrapro.hint.install') === '1'; } catch (e) {}
+    if (dismissed) return;
+    box.hidden = false;
+    $('#rider-install-x').onclick = () => {
+      box.hidden = true;
+      try { localStorage.setItem('livrapro.hint.install', '1'); } catch (e) {}
+    };
+    $('#rider-install-go').onclick = async () => {
+      if (installEvent) {
+        installEvent.prompt();
+        const res = await installEvent.userChoice.catch(() => null);
+        installEvent = null;
+        if (res && res.outcome === 'accepted') { box.hidden = true; toast('LivraPro installée', 'ok'); }
+      } else showInstallSteps();
+    };
+  }
+
   function openRiderSession(r) {
     rider = r;
+    /* Un livreur entré par son badge retrouve ses courses en touchant l'icône. */
+    try { localStorage.setItem(ROLE_KEY, 'livreur'); } catch (e) {}
+    showRiderInstallHint();
     document.body.classList.remove('locked');
     $('#rider-login').hidden = true;
     $('#rider-portal').hidden = false;
@@ -2381,13 +2427,17 @@ tbody tr:hover{background:#F8FAFC}
     function writeFormat(matrix, maskIdx) {
       const f = formatBits(maskIdx);
       const bitAt = i => ((f >> i) & 1) === 1;
-      for (let i = 0; i <= 5; i++) matrix[8][i] = bitAt(i);
-      matrix[8][7] = bitAt(6);
+      /* Première copie, autour du repère haut-gauche.
+         Bits 0 à 8 en descendant la colonne 8, bits 9 à 14 vers la gauche sur la ligne 8. */
+      for (let i = 0; i <= 5; i++) matrix[i][8] = bitAt(i);
+      matrix[7][8] = bitAt(6);
       matrix[8][8] = bitAt(7);
-      matrix[7][8] = bitAt(8);
-      for (let i = 9; i <= 14; i++) matrix[14 - i][8] = bitAt(i);
-      for (let i = 0; i <= 7; i++) matrix[size - 1 - i][8] = bitAt(i);
-      for (let i = 8; i <= 14; i++) matrix[8][size - 15 + i] = bitAt(i);
+      matrix[8][7] = bitAt(8);
+      for (let i = 9; i <= 14; i++) matrix[8][14 - i] = bitAt(i);
+      /* Seconde copie : bits 0 à 7 sur la ligne 8 à droite (8 cases),
+         bits 8 à 14 dans la colonne 8 en bas (7 cases, sous le module noir). */
+      for (let i = 0; i <= 7; i++) matrix[8][size - 1 - i] = bitAt(i);
+      for (let i = 8; i <= 14; i++) matrix[size - 15 + i][8] = bitAt(i);
       matrix[size - 8][8] = true;
     }
     const VERSION_POLY = 0x1F25;
@@ -2612,53 +2662,106 @@ tbody tr:hover{background:#F8FAFC}
   }
 
   /* Badge au format carte bancaire (85,6 × 54 mm), imprimable. */
-  function printBadge(r) {
-    const w = window.open('', '_blank', 'width=620,height=520');
-    if (!w) { toast('Autorisez les fenêtres pop-up pour imprimer le badge.', 'err'); return; }
-    const mat = String(r.token || '').slice(0, 6).toUpperCase() || '—';
-    const photo = r.photo
-      ? '<img class="ph" src="' + r.photo + '" alt="">'
-      : '<div class="noph">' + esc(initials(r.name)) + '</div>';
-    const qr = qrDataUrl(riderLink(r), 480);
-    const line = (l, v) => '<tr><th>' + l + '</th><td>' + esc(v || '—') + '</td></tr>';
-    w.document.write('<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">' +
-      '<title>Badge — ' + esc(r.name) + '</title><style>' +
-      '@page{size:auto;margin:12mm}' +
-      'body{margin:0;padding:18px;background:#EEF2F6;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#12242F}' +
-      '.badge{width:85.6mm;height:54mm;background:#fff;border-radius:4mm;overflow:hidden;' +
-        'display:flex;flex-direction:column;border:1px solid #DBE3EB}' +
+  /* ---------- Badge imprimable : styles et contenu partagés ---------- */
+  function badgeCss() {
+    return '.badge{width:85.6mm;height:54mm;background:#fff;border-radius:4mm;overflow:hidden;' +
+        'display:flex;flex-direction:column;border:1px solid #DBE3EB;box-sizing:border-box;' +
+        'break-inside:avoid;page-break-inside:avoid}' +
       '.bh{background:#0E2436;color:#fff;padding:3mm 4mm;display:flex;align-items:center;gap:2mm;' +
         'font-weight:800;font-size:4mm;letter-spacing:-.2px}' +
       '.bh span.role{margin-left:auto;font-size:2.6mm;font-weight:700;color:#FFB000;text-transform:uppercase;letter-spacing:.6px}' +
       '.bh .mk{width:6mm;height:6mm;border-radius:1.5mm;flex:none;background:#fff center/80% auto no-repeat;' +
         'background-image:url(' + MARK + ')}' +
-      '.bb{flex:1;display:flex;gap:4mm;padding:4mm}' +
+      '.bb{flex:1;display:flex;gap:4mm;padding:4mm;min-height:0}' +
       '.bb img.ph,.noph{width:21mm;height:27mm;border-radius:2mm;object-fit:cover;flex:none;background:#EEF2F6}' +
       '.bb img.qr{width:20mm;height:20mm;flex:none;align-self:flex-start;image-rendering:pixelated}' +
       '.noph{display:flex;align-items:center;justify-content:center;font-size:9mm;font-weight:800;color:#8698A6}' +
-      '.nm{font-size:5mm;font-weight:800;letter-spacing:-.3px;line-height:1.1}' +
-      'table{border-collapse:collapse;margin-top:2mm;width:100%}' +
-      'th{text-align:left;font-size:2.4mm;color:#8698A6;font-weight:600;padding:.9mm 0;width:17mm;text-transform:uppercase;letter-spacing:.4px}' +
-      'td{font-size:3mm;font-weight:600;padding:.9mm 0}' +
-      '.bf{background:repeating-linear-gradient(115deg,#FFB000 0 6mm,#0E2436 6mm 12mm);height:2.5mm}' +
+      '.nm{font-size:5mm;font-weight:800;letter-spacing:-.3px;line-height:1.1;overflow:hidden;' +
+        'text-overflow:ellipsis;white-space:nowrap}' +
+      '.bb table{border-collapse:collapse;margin-top:2mm;width:100%}' +
+      '.bb th{text-align:left;font-size:2.4mm;color:#8698A6;font-weight:600;padding:.9mm 0;width:17mm;' +
+        'text-transform:uppercase;letter-spacing:.4px}' +
+      '.bb td{font-size:3mm;font-weight:600;padding:.9mm 0}' +
+      '.bf{background:repeating-linear-gradient(115deg,#FFB000 0 6mm,#0E2436 6mm 12mm);height:2.5mm;flex:none}' +
       '.mat{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:3mm;font-weight:700;letter-spacing:.5px}' +
-      '.note{margin-top:14px;font-size:12px;color:#5C7385;max-width:85.6mm}' +
-      '@media print{body{background:#fff;padding:0}.note{display:none}}' +
-      '</style></head><body><div class="badge">' +
+      '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}';
+  }
+  function badgeHtml(r) {
+    const mat = String(r.token || '').slice(0, 6).toUpperCase() || '\u2014';
+    const photo = r.photo
+      ? '<img class="ph" src="' + r.photo + '" alt="">'
+      : '<div class="noph">' + esc(initials(r.name)) + '</div>';
+    const qr = qrDataUrl(riderLink(r), 480);
+    const line = (l, v) => '<tr><th>' + l + '</th><td>' + esc(v || '\u2014') + '</td></tr>';
+    return '<div class="badge">' +
       '<div class="bh"><span class="mk"></span>LIVRAPRO<span class="role">Livreur</span></div>' +
       '<div class="bb">' + photo + '<div style="flex:1;min-width:0">' +
         '<div class="nm">' + esc(r.name) + '</div><table>' +
-        line('Téléphone', r.phone) +
-        line('Véhicule', r.vehicle) +
+        line('T\u00e9l\u00e9phone', r.phone) +
+        line('V\u00e9hicule', r.vehicle) +
         line('Immat.', r.plate) +
         '<tr><th>Matricule</th><td class="mat">' + mat + '</td></tr>' +
       '</table></div>' + (qr ? '<img class="qr" src="' + qr + '" alt="">' : '') +
-      '</div><div class="bf"></div></div>' +
-      '<p class="note">Imprimez, découpez sur le bord de la carte, puis glissez dans un porte-badge. ' +
-      'Le code d’accès ne figure volontairement pas sur le badge.</p>' +
+      '</div><div class="bf"></div></div>';
+  }
+
+  function printBadge(r) {
+    const w = window.open('', '_blank', 'width=620,height=520');
+    if (!w) { toast('Autorisez les fen\u00eatres pop-up pour imprimer le badge.', 'err'); return; }
+    w.document.write('<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">' +
+      '<title>Badge \u2014 ' + esc(r.name) + '</title><style>' +
+      '@page{size:auto;margin:12mm}' +
+      'body{margin:0;padding:18px;background:#EEF2F6;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#12242F}' +
+      badgeCss() +
+      '.note{margin-top:14px;font-size:12px;color:#5C7385;max-width:85.6mm}' +
+      '@media print{body{background:#fff;padding:0}.note{display:none}}' +
+      '</style></head><body>' + badgeHtml(r) +
+      '<p class="note">Imprimez, d\u00e9coupez sur le bord de la carte, puis glissez dans un porte-badge. ' +
+      'Le code d\u2019acc\u00e8s ne figure volontairement pas sur le badge.</p>' +
       '</body></html>');
     w.document.close();
     setTimeout(() => { try { w.print(); } catch (e) {} }, 400);
+  }
+
+  /* Planche A4 : 10 badges par page (2 colonnes \u00d7 5 rang\u00e9es), avec traits de coupe. */
+  function printAllBadges() {
+    if (ensureRiderAccess()) save();
+    const list = S.riders.filter(r => r.status !== 'inactif')
+      .sort((a, b) => String(a.name).localeCompare(String(b.name), 'fr'));
+    if (!list.length) { toast('Aucun livreur actif \u00e0 imprimer.', 'err'); return; }
+    const w = window.open('', '_blank', 'width=900,height=1000');
+    if (!w) { toast('Autorisez les fen\u00eatres pop-up pour imprimer les badges.', 'err'); return; }
+    const PAR_PAGE = 10, pages = [];
+    for (let i = 0; i < list.length; i += PAR_PAGE) pages.push(list.slice(i, i + PAR_PAGE));
+    const html = pages.map((grp, k) =>
+      '<section class="page">' +
+        grp.map(r => '<div class="cell">' + badgeHtml(r) + '</div>').join('') +
+      '</section>').join('');
+    w.document.write('<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">' +
+      '<title>Badges LivraPro \u2014 ' + list.length + ' livreur' + (list.length > 1 ? 's' : '') + '</title><style>' +
+      '@page{size:A4 portrait;margin:8mm}' +
+      'body{margin:0;background:#EEF2F6;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#12242F}' +
+      badgeCss() +
+      '.intro{max-width:194mm;margin:16px auto;font-size:13px;color:#5C7385;line-height:1.6}' +
+      '.intro b{color:#12242F}' +
+      '.page{width:194mm;margin:0 auto 16px;display:grid;grid-template-columns:repeat(2,85.6mm);' +
+        'grid-auto-rows:54mm;gap:2mm 4mm;justify-content:center;background:#fff;padding:0;' +
+        'page-break-after:always;break-after:page}' +
+      '.page:last-child{page-break-after:auto;break-after:auto}' +
+      /* traits de coupe discrets autour de chaque carte */
+      '.cell{position:relative;outline:0.2mm dashed #C3CFDA;outline-offset:0.8mm}' +
+      '@media print{body{background:#fff}.intro{display:none}.page{margin:0}}' +
+      '</style></head><body>' +
+      '<p class="intro"><b>' + list.length + ' badge' + (list.length > 1 ? 's' : '') + '</b> sur ' +
+        pages.length + ' page' + (pages.length > 1 ? 's' : '') + ' A4, 10 par page. ' +
+        'Dans la bo\u00eete d\u2019impression, choisissez l\u2019\u00e9chelle <b>100 %</b> (\u00ab taille r\u00e9elle \u00bb), ' +
+        'sinon les cartes ne feront plus 85,6 \u00d7 54 mm et les QR seront plus difficiles \u00e0 lire. ' +
+        'Activez aussi \u00ab graphiques d\u2019arri\u00e8re-plan \u00bb pour garder le bandeau et la bande de couleur. ' +
+        'Livreurs inactifs exclus.</p>' +
+      html + '</body></html>');
+    w.document.close();
+    setTimeout(() => { try { w.print(); } catch (e) {} }, 700);
+    toast(list.length + ' badge' + (list.length > 1 ? 's' : '') + ' pr\u00eat' + (list.length > 1 ? 's' : '') + ' \u00e0 imprimer', 'ok');
   }
 
   /* Fiche d'accès : remise en main propre au livreur, jamais portée sur soi.
@@ -2825,6 +2928,7 @@ tbody tr:hover{background:#F8FAFC}
     $('#btn-add-quick').addEventListener('click', () => openOrder());
     $('#btn-add-order').addEventListener('click', () => openOrder());
     $('#btn-add-rider').addEventListener('click', () => openRider());
+    $('#btn-print-badges').addEventListener('click', printAllBadges);
     $('#btn-add-client').addEventListener('click', () => openClient());
     $('#btn-copy-portal').addEventListener('click', () => copyLink(portalLink(), 'Lien du portail boutique'));
 
