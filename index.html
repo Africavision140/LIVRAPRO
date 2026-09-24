@@ -409,6 +409,22 @@ tbody tr:hover{background:#F8FAFC}
 .role-txt b{display:block;font-size:15.5px;font-weight:700}
 .role-txt span{font-size:13px;color:var(--txt-2)}
 .btn-switch{margin-left:6px}
+.p-stat-open{border-left-color:var(--green)}
+.open-block{margin-bottom:18px}
+.open-head,.mine-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px}
+.open-head h2,.mine-title{font-size:15px;font-weight:700}
+.offer{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--green);
+  border-radius:var(--r);padding:14px 16px;margin-bottom:10px}
+.offer-route{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;font-size:15px}
+.offer-route .arrow{color:var(--txt-3);font-weight:400}
+.offer-meta{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-size:12.5px;color:var(--txt-2)}
+.offer-meta b{color:var(--txt)}
+.offer-money{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.offer-money span{background:var(--line-soft);border-radius:20px;padding:4px 10px;font-size:12.5px;font-weight:700}
+.offer-money span.cash{background:var(--amber-soft)}
+.offer .btn{width:100%;margin-top:12px;padding:12px;font-size:15px}
+.offer-note{font-size:12.5px;color:var(--txt-2);background:var(--line-soft);border-radius:var(--r-s);
+  padding:10px 12px;margin-bottom:10px}
 .install-hint{display:flex;align-items:center;gap:12px;background:var(--amber-soft);
   border:1px solid #F2DCB6;border-radius:var(--r);padding:12px 14px;margin-bottom:14px}
 .install-hint .ih-ico{font-size:24px;flex:none}
@@ -937,6 +953,7 @@ tbody tr:hover{background:#F8FAFC}
     </div>
     <div class="p-body">
       <div class="p-stats">
+        <div class="p-stat p-stat-open"><b id="rd-open">0</b><span>À prendre</span></div>
         <div class="p-stat"><b id="rd-todo">0</b><span>À faire</span></div>
         <div class="p-stat"><b id="rd-route">0</b><span>En route</span></div>
         <div class="p-stat"><b id="rd-done">0</b><span>Livrées aujourd'hui</span></div>
@@ -951,12 +968,20 @@ tbody tr:hover{background:#F8FAFC}
         <button class="btn btn-accent btn-sm" id="rider-install-go">Installer</button>
         <button class="ih-close" id="rider-install-x" aria-label="Fermer">✕</button>
       </div>
+      <section class="open-block">
+        <div class="open-head">
+          <h2>Courses disponibles</h2>
+          <button class="btn btn-ghost btn-xs" id="rider-geo">📍 Trier par distance</button>
+        </div>
+        <div id="rider-open"></div>
+      </section>
+      <h2 class="mine-title">Mes courses</h2>
       <div id="rider-jobs"></div>
       <details style="margin-top:18px">
         <summary style="cursor:pointer;font-weight:600;font-size:14px;color:var(--txt-2)">Courses terminées</summary>
         <div id="rider-history" style="margin-top:12px"></div>
       </details>
-      <p class="client-foot">Gardez cette page ouverte : vous serez averti dès qu'une course vous est confiée.</p>
+      <p class="client-foot">Gardez cette page ouverte : vous serez averti dès qu'une nouvelle course est disponible.</p>
     </div>
   </div>
 
@@ -1265,7 +1290,7 @@ tbody tr:hover{background:#F8FAFC}
      Avec un projectId Firestore, tout le monde voit les mêmes livraisons.
      ====================================================================== */
   const CLOUD = {
-    projectId: 'africa-vision-3b38f',   // mettre '' pour rester 100 % local
+    projectId: 'livrapro-17494',   // base dédiée à LivraPro ; mettre '' pour rester 100 % local
     prefix: 'livrapro_'
   };
 
@@ -1356,6 +1381,9 @@ tbody tr:hover{background:#F8FAFC}
   let filters = { orders:'', status:'', sender:'', riders:'', riderStatus:'', tracking:'', clients:'', shop:'', shopStatus:'' };
   let shop = null;          // boutique connectée dans le portail
   let rider = null;         // livreur connecté dans son portail
+  let riderPos = null;      // position du livreur [lat, lng] : reste sur son téléphone
+  let pulledOnce = false;   // pas d'alerte avant la première synchronisation
+  const MAX_COURSES = 3;    // courses simultanées qu'un livreur peut accepter lui-même
   let riderToken = '';      // jeton lu dans le lien personnel
   let openShip = null;      // expédition dépliée dans le portail
 
@@ -1421,6 +1449,7 @@ tbody tr:hover{background:#F8FAFC}
       setCloud('on');
       save2local();
       renderAll();
+      pulledOnce = true;
     } catch (e) {
       setCloud('off');
     }
@@ -1441,15 +1470,26 @@ tbody tr:hover{background:#F8FAFC}
         snapshot[key][r.id] = stable(r);
         if (key === 'orders' && MODE === 'livreur' && rider && r.riderId === rider.id &&
             r.status !== 'livree' && r.status !== 'annulee') riderAlert(r);
+        if (key === 'orders' && MODE === 'livreur' && isOpen(r)) openAlert(r);
         if (key === 'orders' && MODE === 'agence' && r.origin === 'boutique') {
           S.notifs.unshift({ id: uid(), icon:'🏪', text:'Nouvelle demande de ' + (r.senderName || 'une boutique') + ' — ' + r.ref, at:new Date().toISOString(), read:false });
         }
       } else if ((r._v || 0) > (cur._v || 0)) {
         const newlyMine = key === 'orders' && MODE === 'livreur' && rider &&
-          cur.riderId !== rider.id && r.riderId === rider.id;
+          cur.riderId !== rider.id && r.riderId === rider.id && r.acceptedBy !== 'livreur';
+        const reopened = key === 'orders' && !isOpen(cur) && isOpen(r);
+        const taken = key === 'orders' && MODE === 'agence' && !cur.riderId && r.riderId &&
+          r.acceptedBy === 'livreur';
         Object.assign(cur, r);
         snapshot[key][r.id] = stable(r);
         if (newlyMine) riderAlert(r);
+        if (reopened && MODE === 'livreur') openAlert(r);
+        if (taken) {
+          S.notifs.unshift({ id: uid(), icon: '🛵',
+            text: (riderName(r.riderId) || 'Un livreur') + ' a accepté ' + r.ref + ' → ' + r.address,
+            at: new Date().toISOString(), read: false });
+          beep();
+        }
       }
     });
     /* Enregistrement absent à distance mais déjà poussé = supprimé ailleurs */
@@ -1971,7 +2011,124 @@ tbody tr:hover{background:#F8FAFC}
   /* ======================================================================
      Portail livreur
      ====================================================================== */
+  /* ======================================================================
+     Courses en libre-service : toute course enregistr\u00e9e sans livreur est
+     propos\u00e9e \u00e0 tous les livreurs en service, le premier qui accepte la prend.
+     ====================================================================== */
+  const isOpen = o => !!o && o.status === 'en_attente' && !o.riderId;
+  const inService = () => !!rider && rider.status !== 'en_pause' && rider.status !== 'inactif';
+  const myActive = () => rider
+    ? S.orders.filter(o => o.riderId === rider.id && (o.status === 'assignee' || o.status === 'en_cours')).length
+    : 0;
+  /* Avant acceptation, on ne montre que le quartier : ni nom, ni t\u00e9l\u00e9phone, ni adresse exacte. */
+  function zoneLabel(addr) {
+    const z = findZone(addr);
+    if (z) return z.charAt(0).toUpperCase() + z.slice(1);
+    const first = String(addr || '').split(',')[0].trim();
+    return first || '\u2014';
+  }
+  function distanceKm(o) {
+    if (!riderPos) return null;
+    const z = findZone(o.pickup);
+    if (!z) return null;
+    return Math.round(haversine(riderPos, ZONES[z]) * 1.35 * 10) / 10;   // facteur de voirie
+  }
+  function openAlert(o) {
+    if (!pulledOnce || !inService()) return;
+    const d = distanceKm(o);
+    const txt = zoneLabel(o.pickup) + ' \u2192 ' + zoneLabel(o.address) + ' \u00b7 ' + money(o.fee) +
+      (d !== null ? ' \u00b7 \u00e0 ' + String(d).replace('.', ',') + ' km' : '');
+    beep();
+    toast('Nouvelle course disponible : ' + txt, 'ok');
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try { new Notification('Nouvelle course disponible', { body: txt, tag: 'open-' + o.id }); } catch (e) {}
+    }
+  }
+  function offerCard(o) {
+    const d = distanceKm(o), cash = cashToCollect(o);
+    const blocked = !inService() || myActive() >= MAX_COURSES;
+    return '<div class="offer">' +
+      '<div class="offer-route"><span>' + esc(zoneLabel(o.pickup)) + '</span>' +
+        '<span class="arrow">\u2192</span><span>' + esc(zoneLabel(o.address)) + '</span></div>' +
+      '<div class="offer-meta">' +
+        '<span>Chez <b>' + esc(senderLabel(o)) + '</b></span>' +
+        (d !== null ? '<span>\u00e0 <b>' + String(d).replace('.', ',') + ' km</b> de vous</span>' : '') +
+        (o.distance ? '<span>course de ' + String(o.distance).replace('.', ',') + ' km</span>' : '') +
+        '<span>' + ago(o.createdAt) + '</span>' +
+      '</div>' +
+      '<div class="offer-money"><span>Gain ' + money(o.fee) + '</span>' +
+        (cash ? '<span class="cash">\u00c0 encaisser ' + money(cash) + '</span>' : '') +
+        (o.description ? '<span>' + esc(o.description) + '</span>' : '') + '</div>' +
+      '<button class="btn btn-accent" data-accept="' + o.id + '"' + (blocked ? ' disabled' : '') +
+        '>\u270B Accepter la course</button>' +
+    '</div>';
+  }
+
+  /* R\u00e9servation atomique : on relit la course sur le serveur, puis on n'\u00e9crit
+     que si personne ne l'a modifi\u00e9e entre-temps (pr\u00e9condition Firestore sur
+     l'horodatage). Si deux livreurs acceptent \u00e0 la m\u00eame seconde, un seul gagne. */
+  let accepting = false;
+  async function acceptJob(id) {
+    if (accepting) return;
+    const o = S.orders.filter(x => x.id === id)[0];
+    if (!o || !rider) return;
+    if (!inService()) { toast('Vous \u00eates en pause : reprenez le service pour accepter.', 'err'); return; }
+    if (myActive() >= MAX_COURSES) {
+      toast('Vous avez d\u00e9j\u00e0 ' + MAX_COURSES + ' courses en cours. Terminez-en une d\u2019abord.', 'err'); return;
+    }
+    if (!isOpen(o)) { toast('Cette course n\u2019est plus disponible.', 'err'); renderRiderPortal(); return; }
+
+    const claim = base => {
+      const now = new Date().toISOString();
+      return Object.assign({}, base, {
+        riderId: rider.id, status: 'assignee', acceptedBy: 'livreur', updatedAt: now, _v: Date.now(),
+        history: (base.history || []).filter(h => h.status !== 'assignee').concat([{ status: 'assignee', at: now }])
+      });
+    };
+    accepting = true;
+    try {
+      let won;
+      if (CLOUD.projectId) {
+        const url = cloudUrl(COLLS.orders) + '/' + encodeURIComponent(id);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('lecture ' + res.status);
+        const doc = await res.json();
+        let remote = null;
+        try { remote = JSON.parse(doc.fields.json.stringValue); } catch (e) {}
+        if (!isOpen(remote)) {
+          if (remote) { Object.assign(o, remote); snapshot.orders[o.id] = stable(o); save2local(); }
+          renderRiderPortal();
+          toast('Trop tard : un autre livreur a d\u00e9j\u00e0 pris cette course.', 'err');
+          return;
+        }
+        won = claim(remote);
+        const w = await fetch(url + '?currentDocument.updateTime=' + encodeURIComponent(doc.updateTime), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fields: { json: { stringValue: JSON.stringify(won) } } })
+        });
+        if (!w.ok) {
+          toast('Trop tard : un autre livreur vient de prendre cette course.', 'err');
+          await pull();
+          return;
+        }
+      } else {
+        won = claim(o);
+      }
+      Object.assign(o, won);
+      snapshot.orders[o.id] = stable(o);     // d\u00e9j\u00e0 \u00e9crit : pas de second envoi
+      save2local();
+      renderRiderPortal();
+      toast('Course ' + o.ref + ' accept\u00e9e. Allez la retirer chez ' + senderLabel(o) + '.', 'ok');
+    } catch (e) {
+      toast('Connexion impossible : la course n\u2019a pas pu \u00eatre r\u00e9serv\u00e9e. R\u00e9essayez.', 'err');
+    } finally {
+      accepting = false;
+    }
+  }
+
   function riderAlert(o) {
+    if (!pulledOnce) return;
     beep();
     toast('Nouvelle course : ' + o.ref + ' → ' + o.address, 'ok');
     if ('Notification' in window && Notification.permission === 'granted') {
@@ -2049,6 +2206,26 @@ tbody tr:hover{background:#F8FAFC}
       : '<div class="panel"><div class="empty"><strong>Aucune course en attente</strong>Vous serez averti dès qu\u2019une livraison vous sera confiée.</div></div>';
     $('#rider-history').innerHTML = doneToday.length ? doneToday.map(jobCard).join('')
       : '<div class="empty" style="padding:20px">Rien de terminé aujourd\u2019hui.</div>';
+
+    /* Courses à prendre : les plus proches d'abord, sinon les plus anciennes. */
+    const open = S.orders.filter(isOpen).sort((a, b) => {
+      const da = distanceKm(a), db = distanceKm(b);
+      if (da !== null && db !== null && da !== db) return da - db;
+      if (da !== null && db === null) return -1;
+      if (da === null && db !== null) return 1;
+      return new Date(a.createdAt) - new Date(b.createdAt);
+    });
+    $('#rd-open').textContent = open.length;
+    const geo = $('#rider-geo');
+    geo.textContent = riderPos ? '📍 Tri par distance actif' : '📍 Trier par distance';
+    geo.disabled = !!riderPos;
+    let note = '';
+    if (!inService()) note = 'Vous êtes en pause. Reprenez le service pour accepter une course.';
+    else if (myActive() >= MAX_COURSES) note = 'Vous avez ' + MAX_COURSES + ' courses en cours. Terminez-en une pour en accepter une autre.';
+    $('#rider-open').innerHTML = (note ? '<p class="offer-note">' + note + '</p>' : '') +
+      (open.length ? open.map(offerCard).join('')
+        : '<div class="panel"><div class="empty"><strong>Aucune course à prendre pour le moment</strong>' +
+          'Vous serez averti dès qu\u2019une nouvelle livraison est enregistrée.</div></div>');
   }
   function showRiderPhoneField() {
     $('#rider-phone-wrap').hidden = false;
@@ -3276,6 +3453,18 @@ tbody tr:hover{background:#F8FAFC}
       save(); renderRiderPortal();
       toast(r.status === 'en_pause' ? 'Vous êtes en pause' : 'De retour en service', 'ok');
     });
+    $('#rider-open').addEventListener('click', e => {
+      const b = e.target.closest('[data-accept]');
+      if (b && !b.disabled) acceptJob(b.dataset.accept);
+    });
+    $('#rider-geo').addEventListener('click', () => {
+      if (!('geolocation' in navigator)) { toast('Position indisponible sur cet appareil.', 'err'); return; }
+      navigator.geolocation.watchPosition(
+        p => { riderPos = [p.coords.latitude, p.coords.longitude]; renderRiderPortal(); },
+        () => toast('Position refusée : les courses restent triées par ancienneté.', 'err'),
+        { enableHighAccuracy: false, maximumAge: 60000, timeout: 15000 });
+    });
+
     $('#rider-jobs').addEventListener('click', e => {
       const b = e.target.closest('[data-job]'); if (!b) return;
       const o = S.orders.filter(x => x.id === b.dataset.job)[0]; if (!o) return;
