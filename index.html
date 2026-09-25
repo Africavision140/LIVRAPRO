@@ -1291,7 +1291,11 @@ tbody tr:hover{background:#F8FAFC}
      ====================================================================== */
   const CLOUD = {
     projectId: 'livrapro-17494',   // base dédiée à LivraPro ; mettre '' pour rester 100 % local
-    prefix: 'livrapro_'
+    prefix: 'livrapro_',
+    /* Clé publique du projet. Elle désigne la base, elle n'ouvre aucun droit à elle
+       seule : ce sont les règles Firestore qui décident. Laisser vide désactive
+       l'authentification (la base doit alors être ouverte). */
+    apiKey: 'AIzaSyDCQMZI3Z9Fn71wOe5bmetWximE_iktlYk'
   };
 
   const $  = (s, r) => (r || document).querySelector(s);
@@ -1414,6 +1418,73 @@ tbody tr:hover{background:#F8FAFC}
   let cloudState = CLOUD.projectId ? 'sync' : 'local';
   let pushTimer = null, pulling = false;
 
+  /* ======================================================================
+     Authentification anonyme
+     Chaque appareil obtient un jeton auprès de Firebase et le présente à
+     chaque requête. Les règles Firestore n'acceptent plus rien sans jeton.
+     Le jeton vit une heure ; on le renouvelle avec le jeton de rafraîchissement,
+     conservé sur l'appareil.
+     ====================================================================== */
+  const AUTH = { token: '', expires: 0, refresh: '' };
+  const AUTH_KEY = 'livrapro.auth';
+  let authFailed = false;
+
+  async function authToken() {
+    if (!CLOUD.projectId || !CLOUD.apiKey) return '';
+    if (AUTH.token && Date.now() < AUTH.expires - 60000) return AUTH.token;
+    if (!AUTH.refresh) { try { AUTH.refresh = localStorage.getItem(AUTH_KEY) || ''; } catch (e) {} }
+
+    let d = null;
+    if (AUTH.refresh) {                                  // renouvellement
+      try {
+        const r = await fetch('https://securetoken.googleapis.com/v1/token?key=' + CLOUD.apiKey, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(AUTH.refresh)
+        });
+        if (r.ok) {
+          const j = await r.json();
+          d = { idToken: j.id_token, refreshToken: j.refresh_token, expiresIn: j.expires_in };
+        } else { AUTH.refresh = ''; try { localStorage.removeItem(AUTH_KEY); } catch (e) {} }
+      } catch (e) { return ''; }
+    }
+    if (!d) {                                            // première ouverture
+      try {
+        const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + CLOUD.apiKey, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ returnSecureToken: true })
+        });
+        if (!r.ok) { authFailed = true; return ''; }
+        d = await r.json();
+      } catch (e) { return ''; }
+    }
+    AUTH.token = d.idToken || '';
+    AUTH.refresh = d.refreshToken || '';
+    AUTH.expires = Date.now() + (Number(d.expiresIn) || 3600) * 1000;
+    authFailed = !AUTH.token;
+    try { localStorage.setItem(AUTH_KEY, AUTH.refresh); } catch (e) {}
+    return AUTH.token;
+  }
+
+  /* Toute requête vers la base passe par ici. Un refus pour cause de jeton
+     périmé déclenche un renouvellement et un seul nouvel essai. */
+  async function fsFetch(url, opt) {
+    const o = Object.assign({}, opt || {});
+    const t = await authToken();
+    o.headers = Object.assign({}, o.headers || {}, t ? { Authorization: 'Bearer ' + t } : {});
+    let res = await fetch(url, o);
+    if ((res.status === 401 || res.status === 403) && CLOUD.apiKey) {
+      AUTH.token = ''; AUTH.expires = 0;
+      const t2 = await authToken();
+      if (t2) {
+        o.headers.Authorization = 'Bearer ' + t2;
+        res = await fetch(url, o);
+      }
+    }
+    return res;
+  }
+
   const cloudUrl = coll =>
     'https://firestore.googleapis.com/v1/projects/' + CLOUD.projectId +
     '/databases/(default)/documents/' + CLOUD.prefix + coll;
@@ -1438,7 +1509,7 @@ tbody tr:hover{background:#F8FAFC}
     pulling = true;
     try {
       for (const key of Object.keys(COLLS)) {
-        const res = await fetch(cloudUrl(COLLS[key]) + '?pageSize=300');
+        const res = await fsFetch(cloudUrl(COLLS[key]) + '?pageSize=300');
         if (!res.ok && res.status !== 404) throw new Error(res.status);
         const data = res.status === 404 ? {} : await res.json();
         const docs = (data.documents || []).map(d => {
@@ -1452,6 +1523,10 @@ tbody tr:hover{background:#F8FAFC}
       pulledOnce = true;
     } catch (e) {
       setCloud('off');
+      if (authFailed) {
+        authFailed = false;
+        toast('Base inaccessible : la connexion anonyme n’est pas activée dans Firebase.', 'err');
+      }
     }
     pulling = false;
   }
@@ -1516,7 +1591,7 @@ tbody tr:hover{background:#F8FAFC}
           const body = stable(rec);
           if (snapshot[key][rec.id] === body) continue;
           rec._v = Date.now();
-          const res = await fetch(cloudUrl(COLLS[key]) + '/' + encodeURIComponent(rec.id), {
+          const res = await fsFetch(cloudUrl(COLLS[key]) + '/' + encodeURIComponent(rec.id), {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ fields: { json: { stringValue: JSON.stringify(rec) } } })
@@ -1526,7 +1601,7 @@ tbody tr:hover{background:#F8FAFC}
         }
         for (const id of Object.keys(snapshot[key])) {
           if (live[id]) continue;
-          await fetch(cloudUrl(COLLS[key]) + '/' + encodeURIComponent(id), { method: 'DELETE' });
+          await fsFetch(cloudUrl(COLLS[key]) + '/' + encodeURIComponent(id), { method: 'DELETE' });
           delete snapshot[key][id];
         }
       }
@@ -2090,7 +2165,7 @@ tbody tr:hover{background:#F8FAFC}
       let won;
       if (CLOUD.projectId) {
         const url = cloudUrl(COLLS.orders) + '/' + encodeURIComponent(id);
-        const res = await fetch(url);
+        const res = await fsFetch(url);
         if (!res.ok) throw new Error('lecture ' + res.status);
         const doc = await res.json();
         let remote = null;
@@ -2102,7 +2177,7 @@ tbody tr:hover{background:#F8FAFC}
           return;
         }
         won = claim(remote);
-        const w = await fetch(url + '?currentDocument.updateTime=' + encodeURIComponent(doc.updateTime), {
+        const w = await fsFetch(url + '?currentDocument.updateTime=' + encodeURIComponent(doc.updateTime), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fields: { json: { stringValue: JSON.stringify(won) } } })
