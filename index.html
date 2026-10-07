@@ -92,13 +92,17 @@ table{border-collapse:collapse;width:100%}
 
 /* ============ Connexion ============ */
 .login-screen{
-  position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:24px;
+  position:fixed;inset:0;z-index:200;display:grid;justify-items:center;padding:24px;
+  /* La carte reste centrée, mais si elle dépasse l'écran on peut faire défiler
+     jusqu'en bas : sans cela la dernière porte devient inatteignable. */
+  align-content:safe center;overflow-y:auto;overscroll-behavior:contain;
   background:
     radial-gradient(900px 500px at 15% -10%, rgba(255,176,0,.10) 0%, transparent 60%),
     linear-gradient(160deg,#0E2436 0%,#123048 55%,#0B1D2C 100%);
+  background-attachment:fixed;
 }
 .login-screen::after{
-  content:"";position:absolute;inset:auto 0 0 0;height:14px;
+  content:"";position:fixed;inset:auto 0 0 0;height:14px;
   background:repeating-linear-gradient(115deg,var(--amber) 0 26px,#0E2436 26px 52px);
   opacity:.85;
 }
@@ -400,14 +404,21 @@ tbody tr:hover{background:#F8FAFC}
 .print-logo{width:46mm;display:block}
 
 /* ============ Installation sur l'écran d'accueil ============ */
-.role-grid{display:grid;gap:10px;margin:4px 0 6px}
-.role-btn{display:flex;align-items:center;gap:13px;width:100%;text-align:left;
-  border:1px solid var(--line);border-radius:var(--r);padding:15px 16px;background:var(--card);
+.role-grid{display:grid;gap:8px;margin:4px 0 6px}
+.role-btn{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;background:var(--card);
   transition:border-color .12s,background .12s}
 .role-btn:hover{border-color:var(--amber);background:var(--amber-soft)}
-.role-ico{font-size:27px;flex:none}
-.role-txt b{display:block;font-size:15.5px;font-weight:700}
-.role-txt span{font-size:13px;color:var(--txt-2)}
+.role-ico{font-size:24px;flex:none}
+.role-txt b{display:block;font-size:15px;font-weight:700}
+.role-txt span{font-size:12.5px;line-height:1.4;color:var(--txt-2)}
+/* Le choix du profil tient quatre portes : on resserre l'en-tête pour
+   qu'elles soient toutes visibles sans défiler. */
+#role-pick .login-card{padding:22px 24px 20px}
+#role-pick .login-logo-img{max-width:190px}
+#role-pick .login-title{margin-top:14px;font-size:18px}
+#role-pick .login-sub{margin:3px 0 13px;font-size:13.5px}
+#role-pick .home-about{margin-top:11px}
 .btn-switch{margin-left:6px}
 .p-stat-open{border-left-color:var(--green)}
 .open-block{margin-bottom:18px}
@@ -682,7 +693,7 @@ tbody tr:hover{background:#F8FAFC}
       <div class="role-grid">
         <button class="role-btn" data-role="agence" data-agency>
           <span class="role-ico">🏢</span>
-          <span class="role-txt"><b>L'agence</b><span>Gérer les courses, les livreurs et les boutiques</span></span>
+          <span class="role-txt"><b>L'agence</b><span>Gérer les courses, livreurs et comptes</span></span>
         </button>
         <button class="role-btn" data-role="boutique">
           <span class="role-ico">🏪</span>
