@@ -2823,15 +2823,21 @@ tbody tr:hover{background:#F8FAFC}
     ].map(x => '<tr><th>' + x[0] + '</th><td>' + esc(x[1]) + '</td></tr>').join('');
     const total = (o.fee||0) + (o.cod||0);
     w.document.write('<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>' + esc(o.ref) + '</title>' +
-      '<style>body{font-family:system-ui,Arial,sans-serif;margin:28px;color:#12242F}h1{font-size:19px;margin:0}' +
-      '.ref{font-family:monospace;font-size:16px;font-weight:700;margin-top:4px}' +
-      'table{border-collapse:collapse;width:100%;margin-top:18px}th{text-align:left;width:170px;color:#5C7385;font-size:12px;padding:8px 0;border-bottom:1px solid #eee;font-weight:600}' +
-      'td{padding:8px 0;border-bottom:1px solid #eee;font-size:14px}' +
-      '.total{margin-top:18px;padding:14px;background:#FFF3D8;border-radius:10px;font-weight:800;font-size:17px;display:flex;justify-content:space-between}' +
-      '.sub{font-size:12px;font-weight:600;color:#5C7385;margin-top:6px}' +
-      '.sign{margin-top:44px;display:flex;gap:30px}.sign div{flex:1;border-top:1px dashed #999;padding-top:6px;font-size:12px;color:#5C7385}</style>' +
+      /* Cette fenêtre a sa propre feuille de style : la taille du logo doit y être
+         redonnée, sinon l'image sort à sa taille d'origine et pousse le bon
+         sur une deuxième page. Tout est calibré pour tenir sur une seule page A4. */
+      '<style>@page{size:A4 portrait;margin:14mm}' +
+      'body{font-family:system-ui,Arial,sans-serif;margin:0;color:#12242F}h1{font-size:17px;margin:0}' +
+      '.print-logo{width:40mm;height:auto;display:block;margin-bottom:3mm}' +
+      '.ref{font-family:monospace;font-size:15px;font-weight:700;margin-top:3px}' +
+      'table{border-collapse:collapse;width:100%;margin-top:13px}th{text-align:left;width:165px;color:#5C7385;font-size:11.5px;padding:6.5px 0;border-bottom:1px solid #eee;font-weight:600}' +
+      'td{padding:6.5px 0;border-bottom:1px solid #eee;font-size:13px}' +
+      '.total{margin-top:12px;padding:10px 12px;background:#FFF3D8;border-radius:9px;font-weight:800;font-size:15px;display:flex;justify-content:space-between}' +
+      '.sub{font-size:11.5px;font-weight:600;color:#5C7385;margin-top:5px}' +
+      '.sign{margin-top:26px;display:flex;gap:30px;page-break-inside:avoid}' +
+      '.sign div{flex:1;border-top:1px dashed #999;padding-top:6px;font-size:11.5px;color:#5C7385}</style>' +
       '</head><body>' + (LOGO ? '<img class="print-logo" src="' + LOGO + '" alt="LivraPro">' : '') +
-      '<h1 style="margin-top:10px">Bon de livraison</h1><div class="ref">' + esc(o.ref) + '</div>' +
+      '<h1 style="margin-top:6px">Bon de livraison</h1><div class="ref">' + esc(o.ref) + '</div>' +
       '<table>' + rows + '</table>' +
       '<div class="total"><span>À encaisser par le livreur</span><span>' +
         money(o.payment === 'destinataire' ? total : (o.cod||0)) + '</span></div>' +
