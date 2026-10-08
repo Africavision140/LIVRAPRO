@@ -419,6 +419,15 @@ tbody tr:hover{background:#F8FAFC}
 #role-pick .login-title{margin-top:14px;font-size:18px}
 #role-pick .login-sub{margin:3px 0 13px;font-size:13.5px}
 #role-pick .home-about{margin-top:11px}
+.job-asked{margin:-2px 0 10px;padding:7px 10px;border-radius:9px;font-size:12.5px;font-weight:600;
+  background:var(--amber-soft);color:var(--txt);border:1px solid var(--amber)}
+.rider-box{display:flex;align-items:center;gap:12px;margin-top:12px;padding:11px 13px;
+  border:1px solid var(--line);border-radius:var(--r);background:var(--green-soft)}
+.rider-box.waiting{background:var(--bg-2);border-style:dashed}
+.rider-box b{display:block;font-size:14.5px;font-weight:700}
+.rider-box span{font-size:12.5px;line-height:1.45;color:var(--txt-2)}
+.rider-box > div{flex:1;min-width:0}
+.rider-box .btn{flex:none}
 .btn-switch{margin-left:6px}
 .p-stat-open{border-left-color:var(--green)}
 .open-block{margin-bottom:18px}
@@ -1067,6 +1076,12 @@ tbody tr:hover{background:#F8FAFC}
               <div class="form-group full">
                 <label>Contenu du colis</label>
                 <input type="text" id="pf-desc" placeholder="Ex : 1 sac, documents, 3 kg">
+              </div>
+              <div class="form-group full">
+                <label>Livreur</label>
+                <select id="pf-rider"></select>
+                <p class="hint-line" id="pf-rider-hint">Laissé sur « premier livreur disponible », votre colis est proposé
+                  à tous les livreurs en service : le premier qui accepte vient le chercher.</p>
               </div>
               <div class="form-group full">
                 <label>Qui règle la livraison ?</label>
@@ -1887,6 +1902,10 @@ tbody tr:hover{background:#F8FAFC}
     return k.length >= 6 ? (personList().filter(p => phoneKey(p.phone) === k)[0] || null) : null;
   };
   const isPartOrder = o => o.senderKind === 'particulier' || isPerson(clientById(o.senderId));
+  /* Comment la course a atterri chez ce livreur — l'agence doit pouvoir le lire d'un coup d'œil. */
+  const assignLabel = o => o.acceptedBy === 'livreur' ? 'a pris la course'
+    : o.acceptedBy === 'expediteur' ? 'demandé par l’expéditeur'
+    : 'affecté par l’agence';
   const senderKindLabel = o => isPartOrder(o) ? 'Particulier'
     : ((o.senderId || o.senderKind === 'boutique') ? 'Boutique' : 'Agence');
   const senderLabel = o => {
@@ -2124,7 +2143,10 @@ tbody tr:hover{background:#F8FAFC}
             (o.origin === 'boutique' || o.origin === 'particulier' ? ' · via le portail' : '') + '</div></td>' +
         '<td><div class="cell-main">' + esc(o.client) + '</div><div class="cell-sub">' + esc(o.phone) + '</div></td>' +
         '<td><div class="cell-main">' + esc(o.address) + '</div>' + (o.pickup ? '<div class="cell-sub">Retrait : ' + esc(o.pickup) + '</div>' : '') + '</td>' +
-        '<td>' + (riderName(o.riderId) ? esc(riderName(o.riderId)) : '<span style="color:var(--txt-3)">—</span>') + '</td>' +
+        '<td>' + (riderName(o.riderId)
+          ? '<div class="cell-main">' + esc(riderName(o.riderId)) + '</div>' +
+            '<div class="cell-sub">' + assignLabel(o) + '</div>'
+          : '<span style="color:var(--txt-3)">' + (o.status === 'en_attente' ? 'à prendre' : '—') + '</span>') + '</td>' +
         '<td class="num">' + (o.fee ? money(o.fee) : '—') + '</td>' +
         '<td><div class="cell-main">' + pay + '</div>' + (o.cod ? '<div class="cell-sub">+ ' + money(o.cod) + ' à encaisser</div>' : '') + '</td>' +
         '<td><span class="pill ' + o.status + '">' + ORDER_STATUS[o.status] + '</span></td>' +
@@ -2527,14 +2549,16 @@ tbody tr:hover{background:#F8FAFC}
     const done = o.status === 'livree' || o.status === 'annulee';
     const cls = o.status === 'en_cours' ? 'route' : (o.status === 'assignee' ? 'pickup' : '');
     const sender = clientById(o.senderId);   // boutique ou particulier
+    const askedForMe = o.acceptedBy === 'expediteur';
     const cash = cashToCollect(o);
     const tel = t => '<a class="btn btn-ghost btn-xs" href="tel:' + esc(String(t).replace(/\s/g,'')) + '">📞</a>';
     return '<div class="job ' + cls + '">' +
       '<div class="job-top"><span class="ref">' + esc(o.ref) + '</span>' +
         '<span style="font-size:13px;color:var(--txt-2)">' + esc(o.description || 'Colis') + '</span>' +
         '<span class="pill ' + o.status + '">' + ORDER_STATUS[o.status] + '</span></div>' +
+      (askedForMe ? '<div class="job-asked">🙋 Course demandée pour vous par l’expéditeur</div>' : '') +
 
-      '<div class="job-leg"><span class="ico">🏪</span><div style="flex:1">' +
+      '<div class="job-leg"><span class="ico">' + (isPartOrder(o) ? '🙋' : '🏪') + '</span><div style="flex:1">' +
         '<div class="lbl">Retirer chez</div>' +
         '<div class="val">' + esc(senderLabel(o)) + '</div>' +
         '<div class="sub">' + esc(o.pickup || 'Agence') + '</div>' +
@@ -3665,7 +3689,9 @@ tbody tr:hover{background:#F8FAFC}
         fee: toGNF($('#order-fee').value),
         cod: toGNF($('#order-cod').value),
         payment: $('#order-payment').value,
-        riderId: riderId, status: status, photo: photoBuffer
+        riderId: riderId, status: status, photo: photoBuffer,
+        acceptedBy: riderId ? ((id && (S.orders.filter(x => x.id === id)[0] || {}).riderId === riderId)
+          ? (S.orders.filter(x => x.id === id)[0] || {}).acceptedBy || 'agence' : 'agence') : ''
       };
       if (id) {
         const o = S.orders.filter(x => x.id === id)[0], before = o.status;
@@ -3958,6 +3984,24 @@ tbody tr:hover{background:#F8FAFC}
       ', soit à peu près ' + est.min + ' min de course. Montant confirmé par l’agence.';
     return est;
   }
+  /* Liste des livreurs proposés au particulier : ceux qui sont en service.
+     Le choix reste facultatif — sans choix, la course part au premier disponible. */
+  function fillPartRiders() {
+    const sel = $('#pf-rider'); if (!sel) return;
+    const keep = sel.value;
+    const libres = S.riders.filter(r => r.status === 'disponible' || r.status === 'en_livraison');
+    sel.innerHTML = '<option value="">Premier livreur disponible (recommandé)</option>' +
+      libres.map(r => {
+        const charge = S.orders.filter(o => o.riderId === r.id &&
+          (o.status === 'assignee' || o.status === 'en_cours')).length;
+        return '<option value="' + r.id + '">' + esc(r.name) +
+          ' — ' + esc(r.vehicle || 'moto') +
+          (charge ? ' · ' + charge + ' course' + (charge > 1 ? 's' : '') + ' en cours' : ' · libre') +
+          '</option>';
+      }).join('');
+    if (keep && sel.querySelector('option[value="' + keep + '"]')) sel.value = keep;
+  }
+
   function renderPart() {
     if (!person || !$('#part-orders')) return;
     const fresh = personById(person.id);
@@ -3991,11 +4035,10 @@ tbody tr:hover{background:#F8FAFC}
               '<div><div class="field-label">Colis</div><div class="field-value">' + esc(o.description || '—') + '</div></div>' +
               '<div><div class="field-label">Distance</div><div class="field-value">' +
                 (o.distance ? String(o.distance).replace('.', ',') + ' km' : '—') + '</div></div>' +
-              '<div><div class="field-label">Livreur</div><div class="field-value">' +
-                (riderName(o.riderId) || 'En attente d’affectation') + '</div></div>' +
               '<div><div class="field-label">Prix</div><div class="field-value">' + money(o.fee) +
                 ' (' + (o.payment === 'destinataire' ? 'payé à la réception' : 'à votre charge') + ')</div></div>' +
             '</div>' +
+            partRiderBox(o) +
             '<div class="ship-actions">' +
               '<button class="btn btn-ghost btn-sm" data-sendlink="' + o.id + '">🔗 Lien de suivi pour le destinataire</button>' +
             '</div>' +
@@ -4003,6 +4046,29 @@ tbody tr:hover{background:#F8FAFC}
       '</div>').join('')
       : '<div class="panel"><div class="empty"><strong>Aucun envoi</strong>Créez votre première demande depuis l’onglet « Nouvel envoi ».</div></div>';
   }
+  /* Encart « qui vient chercher le colis » : tant que personne n'a pris la course
+     on le dit clairement, ensuite on donne de quoi appeler le livreur. */
+  function partRiderBox(o) {
+    if (o.status === 'annulee') return '';
+    const r = riderById(o.riderId);
+    if (!r) {
+      return '<div class="rider-box waiting">' +
+        '<span class="rider-avatar">🛵</span>' +
+        '<div><b>En attente d’un livreur</b>' +
+        '<span>Votre colis est proposé aux livreurs en service. Vous verrez ici qui vient le chercher.</span></div></div>';
+    }
+    const how = o.acceptedBy === 'expediteur' ? 'Vous l’avez choisi'
+      : o.acceptedBy === 'livreur' ? 'Il a pris la course'
+      : 'Affecté par l’agence';
+    return '<div class="rider-box">' +
+      '<span class="rider-avatar">' + esc(initials(r.name)) + '</span>' +
+      '<div><b>' + esc(r.name) + '</b>' +
+      '<span>' + how + ' · ' + esc(r.vehicle || 'moto') +
+        (r.plate ? ' · ' + esc(r.plate) : '') + '</span></div>' +
+      '<a class="btn btn-ghost btn-xs" href="tel:' + esc(String(r.phone).replace(/\s/g, '')) + '">📞 Appeler</a>' +
+      '</div>';
+  }
+
   function openPartSession(p) {
     person = p;
     /* L'icône de l'application ouvrira désormais directement cet espace. */
@@ -4011,6 +4077,7 @@ tbody tr:hover{background:#F8FAFC}
     $('#part-login').hidden = true;
     $('#portal-part').hidden = false;
     $('#pf-pickup').placeholder = p.address || 'Votre quartier';
+    fillPartRiders();
     partHint();
     renderPart();
   }
@@ -4070,7 +4137,7 @@ tbody tr:hover{background:#F8FAFC}
       $$('[data-qtab]').forEach(x => x.classList.toggle('active', x === b));
       const isList = b.dataset.qtab === 'list';
       $('#qtab-list').hidden = !isList; $('#qtab-new').hidden = isList;
-      if (!isList) partHint();
+      if (!isList) { fillPartRiders(); partHint(); }
     }));
     $('#part-search').addEventListener('input', e => { filters.part = e.target.value; renderPart(); });
     $('#part-filter').addEventListener('change', e => { filters.partStatus = e.target.value; renderPart(); });
@@ -4088,6 +4155,13 @@ tbody tr:hover{background:#F8FAFC}
 
     $('#pf-address').addEventListener('input', partHint);
     $('#pf-pickup').addEventListener('input', partHint);
+    $('#pf-rider').addEventListener('change', e => {
+      const r = riderById(e.target.value);
+      $('#pf-rider-hint').textContent = r
+        ? 'La course est confiée directement à ' + r.name + '. S’il ne peut pas la prendre, '
+          + 'l’agence la remettra à un autre livreur.'
+        : 'Votre colis est proposé à tous les livreurs en service : le premier qui accepte vient le chercher.';
+    });
     $('#pf-estimate').addEventListener('click', () => {
       const est = partHint();
       if (est && est.ok) toast('Prix estimé : ' + money(est.fee), 'ok');
@@ -4100,21 +4174,37 @@ tbody tr:hover{background:#F8FAFC}
       const est = estimatePart(pickup, address);
       const now = new Date().toISOString();
       const pay = (document.querySelector('input[name="ppay"]:checked') || {}).value || 'expediteur';
+      /* Livreur désigné : la course lui est confiée tout de suite. Sinon elle part
+         dans le lot commun et le premier livreur disponible la prend. */
+      const chosen = riderById($('#pf-rider').value);
       const o = {
         id: uid(), ref: newRef(), origin: 'particulier', senderKind: 'particulier', tarif: 'particulier',
         senderId: person.id, senderName: person.name,
         client: $('#pf-name').value.trim(), phone: $('#pf-phone').value.trim(),
         address: address, pickup: pickup, description: $('#pf-desc').value.trim(),
         distance: est.ok ? est.km : null, duration: est.ok ? est.min : null,
-        fee: est.ok ? est.fee : 0, cod: 0, payment: pay, riderId: '', status: 'en_attente',
-        createdAt: now, updatedAt: now, history: [{ status:'en_attente', at:now }], photo: null
+        fee: est.ok ? est.fee : 0, cod: 0, payment: pay,
+        riderId: chosen ? chosen.id : '',
+        acceptedBy: chosen ? 'expediteur' : '',
+        status: chosen ? 'assignee' : 'en_attente',
+        createdAt: now, updatedAt: now, _v: Date.now(),
+        history: chosen ? [{ status:'en_attente', at:now }, { status:'assignee', at:now }]
+                        : [{ status:'en_attente', at:now }],
+        photo: null
       };
       S.orders.push(o);
+      S.notifs.unshift({ id: uid(), icon: '🙋',
+        text: person.name + ' (particulier) a enregistré ' + o.ref + ' → ' + o.address +
+              (chosen ? ' · livreur demandé : ' + chosen.name : ' · à prendre'),
+        at: now, read: false });
       const me = personById(person.id);
       if (me && !me.address && pickup) me.address = pickup;     // retenu pour la prochaine fois
       save(); renderPart();
       e.target.reset();
       $('#pf-pickup').placeholder = person.address || 'Votre quartier';
+      fillPartRiders();
+      $('#pf-rider-hint').textContent =
+        'Votre colis est proposé à tous les livreurs en service : le premier qui accepte vient le chercher.';
       partHint();
       $('#part-done').innerHTML =
         '<div class="ref-out"><small>Demande enregistrée. Un livreur passe récupérer le colis.</small>' +
@@ -4122,7 +4212,8 @@ tbody tr:hover{background:#F8FAFC}
         '<button class="btn btn-sm" id="new-send-link">🔗 Copier le lien de suivi</button></div>';
       const l = $('#new-send-link');
       if (l) l.addEventListener('click', () => copyLink(trackLink(o.ref), 'Lien de suivi de ' + o.ref));
-      toast('Demande envoyée sous ' + o.ref + (est.ok ? ' — ' + money(o.fee) : ''), 'ok');
+      toast('Demande envoyée sous ' + o.ref + (est.ok ? ' — ' + money(o.fee) : '') +
+        (chosen ? ' · confiée à ' + chosen.name : ''), 'ok');
     });
   }
 
@@ -4423,7 +4514,7 @@ tbody tr:hover{background:#F8FAFC}
       const pid = localStorage.getItem(PART_SESSION) || sessionStorage.getItem(PART_SESSION);
       const me = pid ? personById(pid) : null;
       if (me) openPartSession(me); else setTimeout(() => $('#part-phone').focus(), 120);
-      setInterval(async () => { await pull(); renderPart(); }, 15000);
+      setInterval(async () => { await pull(); fillPartRiders(); renderPart(); }, 15000);
       return;
     }
 
