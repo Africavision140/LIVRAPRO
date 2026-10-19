@@ -3505,7 +3505,7 @@ tbody tr:hover{background:#F8FAFC}
       if (id) {
         const c = clientById(id);
         Object.assign(c, data);
-        if (pass) c.hash = await hash(pass);
+        if (pass) { c.hash = await hash(pass); c._v = Math.max(Date.now(), (c._v || 0) + 1); }
         toast('Boutique mise à jour', 'ok');
       } else {
         data.id = uid(); data.createdAt = new Date().toISOString(); data.hash = await hash(pass);
@@ -3533,6 +3533,8 @@ tbody tr:hover{background:#F8FAFC}
 
     $('#part-login-form').addEventListener('submit', async e => {
       e.preventDefault();
+      err('Connexion…');
+      await pull();
       const c = clientByTel($('#part-phone').value);
       const h = await hash($('#part-pass').value);
       if (!c || c.hash !== h) { err('Téléphone ou mot de passe incorrect.'); return; }
