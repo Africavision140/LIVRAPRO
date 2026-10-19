@@ -600,8 +600,8 @@ tbody tr:hover{background:#F8FAFC}
       <p class="login-sub">Gestion des courses, des livreurs et des boutiques partenaires</p>
       <form id="login-form">
         <div class="form-group">
-          <label>Identifiant</label>
-          <input type="text" id="login-user" placeholder="Votre identifiant" autocomplete="username" required>
+          <label>Adresse e-mail</label>
+          <input type="email" id="login-user" placeholder="Votre adresse e-mail" autocomplete="username" required>
         </div>
         <div class="form-group" style="margin-top:12px">
           <label>Mot de passe</label>
@@ -3205,20 +3205,50 @@ tbody tr:hover{background:#F8FAFC}
     document.addEventListener('keydown', e => { if (e.key === 'Escape') $$('.modal-overlay.open').forEach(closeModal); });
   }
 
+  /* Compte agence : seule cette adresse ouvre l'espace agence. */
+  const AGENCE_EMAIL = 'visionafriaca@gmail.com';
+  async function agencySignIn(email, pass) {
+    try {
+      const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + CLOUD.apiKey, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, password: pass, returnSecureToken: true })
+      });
+      const j = await r.json();
+      if (!r.ok) {
+        const code = (j.error && j.error.message) || '';
+        if (code.indexOf('OPERATION_NOT_ALLOWED') === 0) return { ok: false, msg: 'Connexion par e-mail non activée dans Firebase.' };
+        if (code.indexOf('TOO_MANY_ATTEMPTS') === 0) return { ok: false, msg: 'Trop de tentatives. Réessayez plus tard.' };
+        return { ok: false, msg: 'E-mail ou mot de passe incorrect.' };
+      }
+      if (String(j.email || '').toLowerCase() !== AGENCE_EMAIL) return { ok: false, msg: 'Ce compte n’a pas accès à l’espace agence.' };
+      AUTH.token = j.idToken; AUTH.refresh = j.refreshToken;
+      AUTH.expires = Date.now() + (Number(j.expiresIn) || 3600) * 1000;
+      try { localStorage.setItem(AUTH_KEY, AUTH.refresh); } catch (e) {}
+      return { ok: true, email: j.email };
+    } catch (e) { return { ok: false, msg: 'Connexion impossible. Vérifiez votre réseau.' }; }
+  }
+
   function bindAgence() {
     $('#login-form').addEventListener('submit', async e => {
       e.preventDefault();
-      const u = $('#login-user').value.trim(), h = await hash($('#login-pass').value);
-      if (u.toLowerCase() !== String(S.auth.user).toLowerCase() || h !== S.auth.hash) {
-        $('#login-error').textContent = 'Identifiant ou mot de passe incorrect.'; return;
-      }
+      const email = $('#login-user').value.trim(), pass = $('#login-pass').value;
+      $('#login-error').textContent = 'Connexion…';
+      const res = await agencySignIn(email, pass);
+      if (!res.ok) { $('#login-error').textContent = res.msg; $('#login-pass').value = ''; return; }
+      $('#login-error').textContent = '';
+      S.auth.user = 'Agence Africa Vision';
       ($('#login-remember').checked ? localStorage : sessionStorage).setItem(SESSION, '1');
-      openApp(); toast('Bienvenue, ' + S.auth.user);
+      await pull();
+      openApp(); toast('Bienvenue, espace agence');
     });
     $('#btn-logout').addEventListener('click', () => {
-      localStorage.removeItem(SESSION); sessionStorage.removeItem(SESSION); lock();
+      localStorage.removeItem(SESSION); sessionStorage.removeItem(SESSION);
+      AUTH.token = ''; AUTH.refresh = ''; AUTH.expires = 0;
+      try { localStorage.removeItem(AUTH_KEY); } catch (e) {}
+      lock();
     });
-    $('#btn-change-pass').addEventListener('click', () => { $('#pass-form').reset(); openModal('#pass-modal'); });
+    $('#btn-change-pass').hidden = true;   /* mot de passe géré dans Firebase Authentication */
     $('#pass-form').addEventListener('submit', async e => {
       e.preventDefault();
       if (await hash($('#pass-current').value) !== S.auth.hash) { toast('Mot de passe actuel incorrect.', 'err'); return; }
@@ -3862,7 +3892,6 @@ tbody tr:hover{background:#F8FAFC}
     LOGO = cssAsset('asset-logo');
     MARK = cssAsset('asset-mark');
     load();
-    if (!S.auth.hash) { S.auth.hash = await hash('admin123'); }
     setCloud(CLOUD.projectId ? 'sync' : 'local');
 
     const dl = $('#zones');
