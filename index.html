@@ -92,17 +92,13 @@ table{border-collapse:collapse;width:100%}
 
 /* ============ Connexion ============ */
 .login-screen{
-  position:fixed;inset:0;z-index:200;display:grid;justify-items:center;padding:24px;
-  /* La carte reste centrée, mais si elle dépasse l'écran on peut faire défiler
-     jusqu'en bas : sans cela la dernière porte devient inatteignable. */
-  align-content:safe center;overflow-y:auto;overscroll-behavior:contain;
+  position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:24px;
   background:
     radial-gradient(900px 500px at 15% -10%, rgba(255,176,0,.10) 0%, transparent 60%),
     linear-gradient(160deg,#0E2436 0%,#123048 55%,#0B1D2C 100%);
-  background-attachment:fixed;
 }
 .login-screen::after{
-  content:"";position:fixed;inset:auto 0 0 0;height:14px;
+  content:"";position:absolute;inset:auto 0 0 0;height:14px;
   background:repeating-linear-gradient(115deg,var(--amber) 0 26px,#0E2436 26px 52px);
   opacity:.85;
 }
@@ -404,30 +400,14 @@ tbody tr:hover{background:#F8FAFC}
 .print-logo{width:46mm;display:block}
 
 /* ============ Installation sur l'écran d'accueil ============ */
-.role-grid{display:grid;gap:8px;margin:4px 0 6px}
-.role-btn{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
-  border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;background:var(--card);
+.role-grid{display:grid;gap:10px;margin:4px 0 6px}
+.role-btn{display:flex;align-items:center;gap:13px;width:100%;text-align:left;
+  border:1px solid var(--line);border-radius:var(--r);padding:15px 16px;background:var(--card);
   transition:border-color .12s,background .12s}
 .role-btn:hover{border-color:var(--amber);background:var(--amber-soft)}
-.role-ico{font-size:24px;flex:none}
-.role-txt b{display:block;font-size:15px;font-weight:700}
-.role-txt span{font-size:12.5px;line-height:1.4;color:var(--txt-2)}
-/* Le choix du profil tient quatre portes : on resserre l'en-tête pour
-   qu'elles soient toutes visibles sans défiler. */
-#role-pick .login-card{padding:22px 24px 20px}
-#role-pick .login-logo-img{max-width:190px}
-#role-pick .login-title{margin-top:14px;font-size:18px}
-#role-pick .login-sub{margin:3px 0 13px;font-size:13.5px}
-#role-pick .home-about{margin-top:11px}
-.job-asked{margin:-2px 0 10px;padding:7px 10px;border-radius:9px;font-size:12.5px;font-weight:600;
-  background:var(--amber-soft);color:var(--txt);border:1px solid var(--amber)}
-.rider-box{display:flex;align-items:center;gap:12px;margin-top:12px;padding:11px 13px;
-  border:1px solid var(--line);border-radius:var(--r);background:var(--green-soft)}
-.rider-box.waiting{background:var(--bg-2);border-style:dashed}
-.rider-box b{display:block;font-size:14.5px;font-weight:700}
-.rider-box span{font-size:12.5px;line-height:1.45;color:var(--txt-2)}
-.rider-box > div{flex:1;min-width:0}
-.rider-box .btn{flex:none}
+.role-ico{font-size:27px;flex:none}
+.role-txt b{display:block;font-size:15.5px;font-weight:700}
+.role-txt span{font-size:13px;color:var(--txt-2)}
 .btn-switch{margin-left:6px}
 .p-stat-open{border-left-color:var(--green)}
 .open-block{margin-bottom:18px}
@@ -612,7 +592,6 @@ tbody tr:hover{background:#F8FAFC}
         <button type="submit" class="btn btn-primary login-btn">Se connecter</button>
         <p class="login-error" id="login-error"></p>
       </form>
-      <p class="login-hint">Identifiants par défaut : <strong>admin</strong> / <strong>admin123</strong></p>
     </div>
   </div>
 
@@ -639,60 +618,6 @@ tbody tr:hover{background:#F8FAFC}
     </div>
   </div>
 
-  <!-- ========== Espace particulier : connexion ou création de compte ========== -->
-  <div id="part-login" class="login-screen" hidden>
-    <div class="login-card">
-      <div class="login-logo-img asset-logo" role="img" aria-label="LivraPro"></div>
-      <h2 class="login-title">Espace particulier</h2>
-      <p class="login-sub">Faites livrer un colis à Conakry. Le prix se calcule à la distance : 5 000 FG le kilomètre.</p>
-      <div class="client-tabs" style="margin:0 0 14px">
-        <button class="tab-btn active" data-pauth="in">J'ai un compte</button>
-        <button class="tab-btn" data-pauth="up">Créer mon compte</button>
-      </div>
-
-      <form id="part-login-form">
-        <div class="form-group">
-          <label>Votre numéro de téléphone</label>
-          <input type="tel" id="part-phone" placeholder="Ex : 625 00 00 00" autocomplete="tel" required>
-        </div>
-        <div class="form-group" style="margin-top:12px">
-          <label>Mot de passe</label>
-          <input type="password" id="part-pass" placeholder="••••••••" autocomplete="current-password" required>
-        </div>
-        <label class="login-remember"><input type="checkbox" id="part-remember" checked> Rester connecté sur cet appareil</label>
-        <button type="submit" class="btn btn-accent login-btn">Se connecter</button>
-        <p class="login-error" id="part-login-error"></p>
-      </form>
-
-      <form id="part-signup-form" hidden>
-        <div class="form-group">
-          <label>Nom et prénom *</label>
-          <input type="text" id="pu-name" placeholder="Ex : Mamadou Bah" autocomplete="name">
-        </div>
-        <div class="form-group" style="margin-top:12px">
-          <label>Téléphone *</label>
-          <input type="tel" id="pu-phone" placeholder="Ex : 625 00 00 00" autocomplete="tel">
-        </div>
-        <div class="form-group" style="margin-top:12px">
-          <label>Votre quartier (lieu d'enlèvement habituel)</label>
-          <input type="text" id="pu-address" placeholder="Ex : Kipé, carrefour Constantin" list="zones">
-        </div>
-        <div class="form-group" style="margin-top:12px">
-          <label>Mot de passe *</label>
-          <input type="password" id="pu-pass" placeholder="Au moins 6 caractères" autocomplete="new-password">
-        </div>
-        <div class="form-group" style="margin-top:12px">
-          <label>Confirmer le mot de passe *</label>
-          <input type="password" id="pu-pass2" placeholder="••••••••" autocomplete="new-password">
-        </div>
-        <button type="submit" class="btn btn-accent login-btn" style="margin-top:16px">Créer mon compte</button>
-        <p class="login-error" id="part-signup-error"></p>
-      </form>
-
-      <p class="login-hint">Votre numéro de téléphone sert d'identifiant : c'est lui qui retrouve vos envois.</p>
-    </div>
-  </div>
-
   <!-- ========== Choix du profil (application installée) ========== -->
   <div id="role-pick" class="login-screen" hidden>
     <div class="login-card">
@@ -702,15 +627,11 @@ tbody tr:hover{background:#F8FAFC}
       <div class="role-grid">
         <button class="role-btn" data-role="agence" data-agency>
           <span class="role-ico">🏢</span>
-          <span class="role-txt"><b>L'agence</b><span>Gérer les courses, livreurs et comptes</span></span>
+          <span class="role-txt"><b>L'agence</b><span>Gérer les courses, les livreurs et les boutiques</span></span>
         </button>
         <button class="role-btn" data-role="boutique">
           <span class="role-ico">🏪</span>
           <span class="role-txt"><b>Une boutique</b><span>Confier un colis et suivre mes expéditions</span></span>
-        </button>
-        <button class="role-btn" data-role="particulier">
-          <span class="role-ico">🙋</span>
-          <span class="role-txt"><b>Un particulier</b><span>Envoyer un colis à titre personnel</span></span>
         </button>
         <button class="role-btn" data-role="livreur">
           <span class="role-ico">🛵</span>
@@ -718,11 +639,10 @@ tbody tr:hover{background:#F8FAFC}
         </button>
       </div>
       <p class="home-about">
-        <strong>LivraPro</strong> livre vos colis à Conakry. Les boutiques et les
-        particuliers confient leurs expéditions depuis leur espace, un livreur passe les
-        retirer, et le destinataire suit sa course en direct jusqu'à sa porte. Paiement par
-        l'expéditeur ou à la réception. Pour un particulier, le prix se calcule à la
-        distance : <strong>5 000 FG le kilomètre</strong>.
+        <strong>LivraPro</strong> livre vos colis à Conakry. Les boutiques confient leurs
+        expéditions depuis leur espace, un livreur passe les retirer, et le destinataire
+        suit sa course en direct jusqu'à sa porte. Paiement par l'expéditeur ou à la
+        réception, avec encaissement pour le compte de la boutique.
       </p>
       <p class="login-hint">Vous cherchez seulement à suivre un colis ?
         <a href="s.html" style="color:var(--amber-d);font-weight:700">Suivre un colis</a></p>
@@ -737,7 +657,6 @@ tbody tr:hover{background:#F8FAFC}
         <button class="nav-item active" data-view="dashboard"><span class="nav-icon">📊</span> <span>Tableau de bord</span></button>
         <button class="nav-item" data-view="orders"><span class="nav-icon">📦</span> <span>Livraisons</span><span class="badge" id="badge-orders">0</span></button>
         <button class="nav-item" data-view="clients"><span class="nav-icon">🏪</span> <span>Boutiques</span></button>
-        <button class="nav-item" data-view="persons"><span class="nav-icon">🙋</span> <span>Particuliers</span></button>
         <button class="nav-item" data-view="riders"><span class="nav-icon">🛵</span> <span>Livreurs</span></button>
         <button class="nav-item" data-view="tracking"><span class="nav-icon">📍</span> <span>Suivi en direct</span></button>
       </nav>
@@ -856,22 +775,6 @@ tbody tr:hover{background:#F8FAFC}
           </div>
         </div>
         <div id="clients-grid" class="shops-grid"></div>
-      </section>
-
-      <!-- Comptes particuliers -->
-      <section id="view-persons" class="view">
-        <div class="toolbar">
-          <div class="filters"><input type="text" id="search-persons" placeholder="🔍 Rechercher un particulier..."></div>
-          <div style="display:flex;gap:10px;">
-            <button class="btn btn-ghost" id="btn-copy-part">🔗 Lien d'inscription</button>
-            <button class="btn btn-accent" id="btn-add-person">+ Ajouter un particulier</button>
-          </div>
-        </div>
-        <p class="offer-note" style="max-width:720px">
-          Tarif particulier : la course est facturée à la distance, <strong>5 000 FG le kilomètre</strong>,
-          avec un minimum de 5 000 FG. Les particuliers créent leur compte eux-mêmes depuis le lien d'inscription.
-        </p>
-        <div id="persons-grid" class="shops-grid"></div>
       </section>
 
       <!-- Livreurs -->
@@ -1008,104 +911,6 @@ tbody tr:hover{background:#F8FAFC}
         </div>
       </div>
       <p class="client-foot">Une question sur une course ? Contactez l'agence avec la référence du colis.</p>
-    </div>
-  </div>
-
-  <!-- ========== Portail particulier ========== -->
-  <div id="portal-part" class="portal" hidden>
-    <div class="p-top">
-      <span class="brand"><span class="mark-tile sm asset-mark"></span>LivraPro</span>
-      <span class="cloud" id="cloud-state-part">Local</span>
-      <div class="p-shop">
-        <b id="part-name">—</b>
-        <button class="btn btn-ghost btn-xs" id="part-logout">Déconnexion</button>
-        <button class="btn btn-ghost btn-xs btn-switch" data-switch hidden>Changer de profil</button>
-      </div>
-    </div>
-    <div class="p-body">
-      <div class="p-stats">
-        <div class="p-stat"><b id="pp-total">0</b><span>Envois</span></div>
-        <div class="p-stat"><b id="pp-active">0</b><span>En cours</span></div>
-        <div class="p-stat"><b id="pp-done">0</b><span>Livrés</span></div>
-        <div class="p-stat"><b id="pp-spent" style="font-size:16px">0</b><span>Frais (courses livrées)</span></div>
-      </div>
-      <div class="client-tabs">
-        <button class="tab-btn active" data-qtab="list">Mes envois</button>
-        <button class="tab-btn" data-qtab="new">Nouvel envoi</button>
-      </div>
-
-      <div id="qtab-list">
-        <div class="toolbar">
-          <div class="filters">
-            <input type="text" id="part-search" placeholder="🔍 Référence ou destinataire...">
-            <select id="part-filter">
-              <option value="">Tous les statuts</option>
-              <option value="en_attente">En attente</option>
-              <option value="assignee">Assignée</option>
-              <option value="en_cours">En cours</option>
-              <option value="livree">Livrée</option>
-              <option value="annulee">Annulée</option>
-            </select>
-          </div>
-        </div>
-        <div id="part-orders"></div>
-      </div>
-
-      <div id="qtab-new" hidden>
-        <div id="part-done"></div>
-        <div class="panel">
-          <div class="panel-header"><h2>Envoyer un colis</h2></div>
-          <form id="part-form">
-            <div class="form-grid">
-              <div class="form-group">
-                <label>Nom du destinataire *</label>
-                <input type="text" id="pf-name" required placeholder="Ex : Mariama Diallo">
-              </div>
-              <div class="form-group">
-                <label>Téléphone du destinataire *</label>
-                <input type="tel" id="pf-phone" required placeholder="Ex : 625 00 00 00">
-              </div>
-              <div class="form-group">
-                <label>Adresse de livraison *</label>
-                <input type="text" id="pf-address" required placeholder="Ex : Kipé, carrefour Constantin" list="zones">
-              </div>
-              <div class="form-group">
-                <label>Adresse d'enlèvement</label>
-                <input type="text" id="pf-pickup" placeholder="Votre quartier" list="zones">
-              </div>
-              <div class="form-group full">
-                <label>Contenu du colis</label>
-                <input type="text" id="pf-desc" placeholder="Ex : 1 sac, documents, 3 kg">
-              </div>
-              <div class="form-group full">
-                <label>Livreur</label>
-                <select id="pf-rider"></select>
-                <p class="hint-line" id="pf-rider-hint">Laissé sur « premier livreur disponible », votre colis est proposé
-                  à tous les livreurs en service : le premier qui accepte vient le chercher.</p>
-              </div>
-              <div class="form-group full">
-                <label>Qui règle la livraison ?</label>
-                <div class="pay-choice">
-                  <label class="pay-opt">
-                    <input type="radio" name="ppay" value="expediteur" checked>
-                    <span><b>Je paie à l'enlèvement</b><span>Vous réglez le livreur quand il prend le colis.</span></span>
-                  </label>
-                  <label class="pay-opt">
-                    <input type="radio" name="ppay" value="destinataire">
-                    <span><b>Le destinataire paie à la réception</b><span>Le livreur encaisse les frais sur place.</span></span>
-                  </label>
-                </div>
-              </div>
-              <p class="hint-line" id="pf-hint"></p>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-ghost" id="pf-estimate">🧭 Calculer le prix</button>
-              <button type="submit" class="btn btn-accent">Envoyer la demande</button>
-            </div>
-          </form>
-        </div>
-      </div>
-      <p class="client-foot">Un livreur passe prendre le colis à l'adresse d'enlèvement, puis vous suivez la course en direct depuis « Mes envois ».</p>
     </div>
   </div>
 
@@ -1329,41 +1134,6 @@ tbody tr:hover{background:#F8FAFC}
     </div>
   </div>
 
-  <div class="modal-overlay" id="person-modal">
-    <div class="modal" style="max-width:560px">
-      <div class="modal-header">
-        <h2 id="person-modal-title">Ajouter un particulier</h2>
-        <button class="modal-close" data-close-modal>✕</button>
-      </div>
-      <form id="person-form">
-        <input type="hidden" id="person-id">
-        <div class="form-grid">
-          <div class="form-group full">
-            <label>Nom et prénom *</label>
-            <input type="text" id="person-name" required placeholder="Ex : Mamadou Bah">
-          </div>
-          <div class="form-group">
-            <label>Téléphone *</label>
-            <input type="tel" id="person-phone" required placeholder="Ex : 625 00 00 00">
-          </div>
-          <div class="form-group">
-            <label>Quartier habituel</label>
-            <input type="text" id="person-address" placeholder="Ex : Kipé" list="zones">
-          </div>
-          <div class="form-group full">
-            <label>Mot de passe <span id="person-pass-note" style="font-weight:400"></span></label>
-            <input type="text" id="person-pass" placeholder="Au moins 6 caractères">
-          </div>
-          <p class="hint-line">Le téléphone sert d'identifiant. Tarif à la distance : 5 000 FG le kilomètre, course minimale 5 000 FG.</p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-ghost" data-close-modal>Annuler</button>
-          <button type="submit" class="btn btn-primary">Enregistrer</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
   <div class="modal-overlay" id="rider-modal">
     <div class="modal">
       <div class="modal-header">
@@ -1533,13 +1303,9 @@ tbody tr:hover{background:#F8FAFC}
   const SESSION = 'livrapro.session';
   const SHOP_SESSION = 'livrapro.shop';
   const RIDER_SESSION = 'livrapro.rider';
-  const PART_SESSION = 'livrapro.part';
   const RATE_EUR = 10000;
   const TARIF_BASE = 15000;
   const TARIF_KM = 3000;
-  /* Tarif particulier : rien que la distance, 5 000 FG le kilomètre. */
-  const TARIF_PART_KM = 5000;
-  const TARIF_PART_MIN = 5000;
   const VITESSE = 18;
 
   /* Mode d'ouverture — déduit du dossier, ou de la requête.
@@ -1555,11 +1321,10 @@ tbody tr:hover{background:#F8FAFC}
     let folder = null;
     if (/^app\.html?$/i.test(file)) folder = 'app';
     else if (/^boutique\.html?$/i.test(file)) folder = 'boutique';
-    else if (/^p(articulier)?\.html?$/i.test(file)) folder = 'particulier';
     else if (/^l(ivreur)?\.html?$/i.test(file)) folder = 'livreur';
     else if (/^s(uivi)?\.html?$/i.test(file)) folder = 'suivi';
     else {
-      const m = /\/(boutique|particulier|suivi)\/$/.exec(dir);   // variante en dossiers
+      const m = /\/(boutique|suivi)\/$/.exec(dir);      // variante en dossiers
       if (m) { folder = m[1]; dir = dir.slice(0, m.index + 1); }
     }
     return { folder: folder, root: location.origin + dir };
@@ -1569,7 +1334,6 @@ tbody tr:hover{background:#F8FAFC}
       (has('app') || LOC.folder === 'app') ? 'app'
     : (has('agence') || has('admin')) ? 'agence'
     : (has('boutique') || has('client') || LOC.folder === 'boutique') ? 'boutique'
-    : (has('particulier') || has('perso') || LOC.folder === 'particulier') ? 'particulier'
     : (has('livreur') || LOC.folder === 'livreur') ? 'livreur'
     : (has('suivi') || LOC.folder === 'suivi') ? 'suivi'
     : 'accueil';          /* la racine : les trois portes */
@@ -1578,7 +1342,7 @@ tbody tr:hover{background:#F8FAFC}
   const ORDER_STATUS = { en_attente:'En attente', assignee:'Assignée', en_cours:'En cours', livree:'Livrée', annulee:'Annulée' };
   const RIDER_STATUS = { disponible:'Disponible', en_livraison:'En livraison', en_pause:'En pause', inactif:'Inactif' };
   const FLOW = ['en_attente', 'assignee', 'en_cours', 'livree'];
-  const VIEW_TITLES = { dashboard:'Tableau de bord', orders:'Livraisons', clients:'Boutiques partenaires', persons:'Comptes particuliers', riders:'Livreurs', tracking:'Suivi en direct' };
+  const VIEW_TITLES = { dashboard:'Tableau de bord', orders:'Livraisons', clients:'Boutiques partenaires', riders:'Livreurs', tracking:'Suivi en direct' };
 
   /* Relit une image définie en CSS, pour la réutiliser dans les fenêtres
      d'impression et sur le badge sans stocker de seconde copie. */
@@ -1617,11 +1381,8 @@ tbody tr:hover{background:#F8FAFC}
     settings: { currency:'GNF', sound:true, native:true, seeded:false },
     auth: { user:'admin', hash:null }
   };
-  let filters = { orders:'', status:'', sender:'', riders:'', riderStatus:'', tracking:'', clients:'',
-                  shop:'', shopStatus:'', persons:'', part:'', partStatus:'' };
+  let filters = { orders:'', status:'', sender:'', riders:'', riderStatus:'', tracking:'', clients:'', shop:'', shopStatus:'' };
   let shop = null;          // boutique connectée dans le portail
-  let person = null;        // particulier connecté dans son portail
-  let openSend = null;      // envoi déplié dans le portail particulier
   let rider = null;         // livreur connecté dans son portail
   let riderPos = null;      // position du livreur [lat, lng] : reste sur son téléphone
   let pulledOnce = false;   // pas d'alerte avant la première synchronisation
@@ -1730,7 +1491,7 @@ tbody tr:hover{background:#F8FAFC}
   function setCloud(state) {
     cloudState = state;
     const label = { local:'Local', sync:'Synchronisation…', on:'Synchronisé', off:'Hors ligne' }[state];
-    [$('#cloud-state'), $('#cloud-state-shop'), $('#cloud-state-part'), $('#cloud-state-rider')].forEach(el => {
+    [$('#cloud-state'), $('#cloud-state-shop')].forEach(el => {
       if (!el) return;
       el.textContent = label;
       el.className = 'cloud ' + (state === 'on' ? 'on' : state === 'off' ? 'off' : state === 'sync' ? 'sync' : '');
@@ -1784,13 +1545,8 @@ tbody tr:hover{background:#F8FAFC}
         if (key === 'orders' && MODE === 'livreur' && rider && r.riderId === rider.id &&
             r.status !== 'livree' && r.status !== 'annulee') riderAlert(r);
         if (key === 'orders' && MODE === 'livreur' && isOpen(r)) openAlert(r);
-        if (key === 'orders' && MODE === 'agence' && (r.origin === 'boutique' || r.origin === 'particulier')) {
-          const fromPart = r.origin === 'particulier';
-          S.notifs.unshift({ id: uid(), icon: fromPart ? '🙋' : '🏪',
-            text: 'Nouvelle demande de ' + (r.senderName || (fromPart ? 'un particulier' : 'une boutique')) +
-                  (fromPart ? ' (particulier)' : '') + ' — ' + r.ref,
-            at: new Date().toISOString(), read: false });
-          beep();
+        if (key === 'orders' && MODE === 'agence' && r.origin === 'boutique') {
+          S.notifs.unshift({ id: uid(), icon:'🏪', text:'Nouvelle demande de ' + (r.senderName || 'une boutique') + ' — ' + r.ref, at:new Date().toISOString(), read:false });
         }
       } else if ((r._v || 0) > (cur._v || 0)) {
         const newlyMine = key === 'orders' && MODE === 'livreur' && rider &&
@@ -1889,29 +1645,7 @@ tbody tr:hover{background:#F8FAFC}
   const riderById = id => S.riders.filter(r => r.id === id)[0] || null;
   const riderName = id => { const r = riderById(id); return r ? r.name : null; };
   const clientById = id => S.clients.filter(c => c.id === id)[0] || null;
-  /* Les comptes particuliers vivent dans la même collection que les boutiques
-     (livrapro_clients), distingués par kind:'particulier'. Rien à changer dans
-     les règles Firestore, et un particulier reste un expéditeur comme un autre. */
-  const isPerson = c => !!c && c.kind === 'particulier';
-  const shopList = () => S.clients.filter(c => !isPerson(c));
-  const personList = () => S.clients.filter(isPerson);
-  const personById = id => { const c = clientById(id); return isPerson(c) ? c : null; };
-  const phoneKey = t => String(t || '').replace(/\D/g, '').slice(-8);
-  const personByPhone = t => {
-    const k = phoneKey(t);
-    return k.length >= 6 ? (personList().filter(p => phoneKey(p.phone) === k)[0] || null) : null;
-  };
-  const isPartOrder = o => o.senderKind === 'particulier' || isPerson(clientById(o.senderId));
-  /* Comment la course a atterri chez ce livreur — l'agence doit pouvoir le lire d'un coup d'œil. */
-  const assignLabel = o => o.acceptedBy === 'livreur' ? 'a pris la course'
-    : o.acceptedBy === 'expediteur' ? 'demandé par l’expéditeur'
-    : 'affecté par l’agence';
-  const senderKindLabel = o => isPartOrder(o) ? 'Particulier'
-    : ((o.senderId || o.senderKind === 'boutique') ? 'Boutique' : 'Agence');
-  const senderLabel = o => {
-    const s = clientById(o.senderId);
-    return (s && s.name) || o.senderName || (o.senderId ? 'Expéditeur' : 'Agence');
-  };
+  const senderLabel = o => o.senderId ? ((clientById(o.senderId) || {}).name || o.senderName || 'Boutique') : (o.senderName || 'Agence');
   const initials = n => String(n||'?').trim().split(/\s+/).slice(0,2).map(w => w[0]).join('').toUpperCase();
   function avatar(r, px) {
     const st = 'width:' + px + 'px;height:' + px + 'px;border-radius:' + Math.round(px/3.6) + 'px';
@@ -2024,7 +1758,6 @@ tbody tr:hover{background:#F8FAFC}
   }
   const trackLink = ref => LOC.root + 's.html#' + refKey(ref);
   const portalLink = () => LOC.root + 'boutique.html';
-  const partLink = () => LOC.root + 'p.html';
   const riderLink = r => LOC.root + 'l.html#' + r.token;
   const agencyLink = () => LOC.root;
 
@@ -2048,16 +1781,6 @@ tbody tr:hover{background:#F8FAFC}
              min: Math.round(km/VITESSE*60) + 8,
              fee: Math.round((TARIF_BASE + km*TARIF_KM)/500)*500 };
   }
-  /* Particuliers : pas de forfait de prise en charge, uniquement les kilomètres,
-     à 5 000 FG le kilomètre, avec une course minimale de 5 000 FG. */
-  function estimatePart(pickup, dest) {
-    const e = estimate(pickup, dest);
-    if (!e.ok) return e;
-    const fee = Math.max(TARIF_PART_MIN, Math.round(e.km * TARIF_PART_KM / 500) * 500);
-    return { ok:true, z1:e.z1, z2:e.z2, km:e.km, min:e.min, fee:fee };
-  }
-  const quoteFor = (o, pickup, dest) =>
-    isPartOrder(o) ? estimatePart(pickup, dest) : estimate(pickup, dest);
 
   function syncRiders() {
     S.riders.forEach(r => {
@@ -2113,23 +1836,14 @@ tbody tr:hover{background:#F8FAFC}
     const sel = $('#filter-sender');
     if (sel) {
       const cur = filters.sender;
-      const grp = (lab, arr) => arr.length ? '<optgroup label="' + lab + '">' +
-        arr.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('') + '</optgroup>' : '';
-      sel.innerHTML = '<option value="">Tous les expéditeurs</option>' +
-        '<option value="agence">Agence</option>' +
-        '<option value="boutiques">Toutes les boutiques</option>' +
-        '<option value="particuliers">Tous les particuliers</option>' +
-        grp('Boutiques', shopList()) + grp('Particuliers', personList());
+      sel.innerHTML = '<option value="">Tous les expéditeurs</option><option value="agence">Agence</option>' +
+        S.clients.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
       sel.value = cur;
     }
     const q = norm(filters.orders);
     const list = S.orders
       .filter(o => !filters.status || o.status === filters.status)
-      .filter(o => !filters.sender
-        || (filters.sender === 'agence' ? !o.senderId
-          : filters.sender === 'particuliers' ? isPartOrder(o)
-          : filters.sender === 'boutiques' ? (!!o.senderId && !isPartOrder(o))
-          : o.senderId === filters.sender))
+      .filter(o => !filters.sender || (filters.sender === 'agence' ? !o.senderId : o.senderId === filters.sender))
       .filter(o => !q || norm([o.ref,o.client,o.phone,o.address,o.description,senderLabel(o),riderName(o.riderId)].join(' ')).indexOf(q) !== -1)
       .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
 
@@ -2139,14 +1853,10 @@ tbody tr:hover{background:#F8FAFC}
       return '<tr>' +
         '<td><span class="ref">' + esc(o.ref) + '</span></td>' +
         '<td><div class="cell-main">' + esc(senderLabel(o)) + '</div>' +
-          '<div class="cell-sub">' + senderKindLabel(o) +
-            (o.origin === 'boutique' || o.origin === 'particulier' ? ' · via le portail' : '') + '</div></td>' +
+          (o.origin === 'boutique' ? '<div class="cell-sub">via le portail</div>' : '') + '</td>' +
         '<td><div class="cell-main">' + esc(o.client) + '</div><div class="cell-sub">' + esc(o.phone) + '</div></td>' +
         '<td><div class="cell-main">' + esc(o.address) + '</div>' + (o.pickup ? '<div class="cell-sub">Retrait : ' + esc(o.pickup) + '</div>' : '') + '</td>' +
-        '<td>' + (riderName(o.riderId)
-          ? '<div class="cell-main">' + esc(riderName(o.riderId)) + '</div>' +
-            '<div class="cell-sub">' + assignLabel(o) + '</div>'
-          : '<span style="color:var(--txt-3)">' + (o.status === 'en_attente' ? 'à prendre' : '—') + '</span>') + '</td>' +
+        '<td>' + (riderName(o.riderId) ? esc(riderName(o.riderId)) : '<span style="color:var(--txt-3)">—</span>') + '</td>' +
         '<td class="num">' + (o.fee ? money(o.fee) : '—') + '</td>' +
         '<td><div class="cell-main">' + pay + '</div>' + (o.cod ? '<div class="cell-sub">+ ' + money(o.cod) + ' à encaisser</div>' : '') + '</td>' +
         '<td><span class="pill ' + o.status + '">' + ORDER_STATUS[o.status] + '</span></td>' +
@@ -2165,7 +1875,7 @@ tbody tr:hover{background:#F8FAFC}
   function renderClients() {
     if (!$('#clients-grid')) return;
     const q = norm(filters.clients);
-    const list = shopList().filter(c => !q || norm([c.name,c.contact,c.phone,c.code,c.address].join(' ')).indexOf(q) !== -1);
+    const list = S.clients.filter(c => !q || norm([c.name,c.contact,c.phone,c.code,c.address].join(' ')).indexOf(q) !== -1);
     $('#clients-grid').innerHTML = list.length ? list.map(c => {
       const mine = S.orders.filter(o => o.senderId === c.id);
       const done = mine.filter(o => o.status === 'livree');
@@ -2195,43 +1905,6 @@ tbody tr:hover{background:#F8FAFC}
     : '<div class="panel"><div class="empty"><strong>Aucune boutique partenaire</strong>Créez un compte pour qu\u2019une boutique dépose ses colis elle-même.<br><button class="btn btn-accent" id="empty-add-client">+ Ajouter une boutique</button></div></div>';
     const ea = $('#empty-add-client');
     if (ea) ea.addEventListener('click', () => openClient());
-  }
-
-  function renderPersons() {
-    if (!$('#persons-grid')) return;
-    const q = norm(filters.persons);
-    const list = personList()
-      .filter(p => !q || norm([p.name, p.phone, p.address].join(' ')).indexOf(q) !== -1)
-      .sort((a, b) => String(a.name).localeCompare(String(b.name), 'fr'));
-    $('#persons-grid').innerHTML = list.length ? list.map(p => {
-      const mine = S.orders.filter(o => o.senderId === p.id);
-      const done = mine.filter(o => o.status === 'livree');
-      const due = done.filter(o => o.payment !== 'destinataire').reduce((s, o) => s + (o.fee || 0), 0);
-      return '<div class="shop-card">' +
-        '<div class="rider-top">' +
-          '<span class="rider-avatar">' + esc(initials(p.name)) + '</span>' +
-          '<div style="flex:1;min-width:0">' +
-            '<div class="shop-name">' + esc(p.name) + '</div>' +
-            '<div class="rider-meta">' + esc(p.phone) + '</div>' +
-            '<div class="rider-meta">' + esc(p.address || 'Quartier non renseigné') + '</div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="rider-stats">' +
-          '<div class="rider-stat"><b>' + mine.length + '</b><span>Envois</span></div>' +
-          '<div class="rider-stat"><b>' + done.length + '</b><span>Livrés</span></div>' +
-          '<div class="rider-stat"><b style="font-size:14px">' + money(due) + '</b><span>Frais réglés</span></div>' +
-        '</div>' +
-        '<div style="margin-bottom:12px"><span class="code-box">5 000 FG / km</span></div>' +
-        '<div class="rider-foot">' +
-          '<button class="btn btn-ghost btn-xs" data-pcopy="' + p.id + '">🔗 Accès</button>' +
-          '<a class="btn btn-ghost btn-xs" href="tel:' + esc(String(p.phone).replace(/\s/g,'')) + '">📞 Appeler</a>' +
-          '<button class="icon-btn" data-pedit="' + p.id + '" title="Modifier">✏️</button>' +
-          '<button class="icon-btn danger" data-pdel="' + p.id + '" title="Supprimer">🗑️</button>' +
-        '</div></div>';
-    }).join('')
-    : '<div class="panel"><div class="empty"><strong>Aucun compte particulier</strong>Les particuliers créent leur compte eux-mêmes depuis le lien d’inscription. Vous pouvez aussi en ouvrir un ici.<br><button class="btn btn-accent" id="empty-add-person">+ Ajouter un particulier</button></div></div>';
-    const eb = $('#empty-add-person');
-    if (eb) eb.addEventListener('click', () => openPerson());
   }
 
   function renderRiders() {
@@ -2340,10 +2013,9 @@ tbody tr:hover{background:#F8FAFC}
   function renderAll() {
     syncRiders();
     if (MODE === 'boutique') { renderShop(); return; }
-    if (MODE === 'particulier') { renderPart(); return; }
     if (MODE === 'livreur') { renderRiderPortal(); return; }
     if (MODE === 'suivi') return;
-    renderDashboard(); renderOrders(); renderClients(); renderPersons(); renderRiders(); renderTracking(); renderNotifs();
+    renderDashboard(); renderOrders(); renderClients(); renderRiders(); renderTracking(); renderNotifs();
     if ($('#fee-currency')) {
       $('#fee-currency').textContent = S.settings.currency === 'EUR' ? '€' : 'FG';
       $$('.fee-cur').forEach(e => e.textContent = S.settings.currency === 'EUR' ? '€' : 'FG');
@@ -2548,17 +2220,15 @@ tbody tr:hover{background:#F8FAFC}
   function jobCard(o) {
     const done = o.status === 'livree' || o.status === 'annulee';
     const cls = o.status === 'en_cours' ? 'route' : (o.status === 'assignee' ? 'pickup' : '');
-    const sender = clientById(o.senderId);   // boutique ou particulier
-    const askedForMe = o.acceptedBy === 'expediteur';
+    const sender = clientById(o.senderId);
     const cash = cashToCollect(o);
     const tel = t => '<a class="btn btn-ghost btn-xs" href="tel:' + esc(String(t).replace(/\s/g,'')) + '">📞</a>';
     return '<div class="job ' + cls + '">' +
       '<div class="job-top"><span class="ref">' + esc(o.ref) + '</span>' +
         '<span style="font-size:13px;color:var(--txt-2)">' + esc(o.description || 'Colis') + '</span>' +
         '<span class="pill ' + o.status + '">' + ORDER_STATUS[o.status] + '</span></div>' +
-      (askedForMe ? '<div class="job-asked">🙋 Course demandée pour vous par l’expéditeur</div>' : '') +
 
-      '<div class="job-leg"><span class="ico">' + (isPartOrder(o) ? '🙋' : '🏪') + '</span><div style="flex:1">' +
+      '<div class="job-leg"><span class="ico">🏪</span><div style="flex:1">' +
         '<div class="lbl">Retirer chez</div>' +
         '<div class="val">' + esc(senderLabel(o)) + '</div>' +
         '<div class="sub">' + esc(o.pickup || 'Agence') + '</div>' +
@@ -2697,10 +2367,8 @@ tbody tr:hover{background:#F8FAFC}
   function closeModal(el) { el.classList.remove('open'); }
 
   function fillSelects(o) {
-    const grp = (lab, arr) => arr.length ? '<optgroup label="' + lab + '">' +
-      arr.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('') + '</optgroup>' : '';
     $('#order-sender').innerHTML = '<option value="">Agence (dépôt au comptoir)</option>' +
-      grp('Boutiques', shopList()) + grp('Particuliers — 5 000 FG/km', personList());
+      S.clients.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
     $('#order-rider').innerHTML = '<option value="">— Non assigné —</option>' +
       S.riders.filter(r => r.status !== 'inactif')
         .map(r => '<option value="' + r.id + '">' + esc(r.name) + ' (' + RIDER_STATUS[r.status] + ')</option>').join('');
@@ -2783,19 +2451,6 @@ tbody tr:hover{background:#F8FAFC}
     openModal('#client-modal');
     setTimeout(() => $('#client-name').focus(), 50);
   }
-  function openPerson(id) {
-    const p = id ? personById(id) : null;
-    $('#person-modal-title').textContent = p ? 'Modifier ' + p.name : 'Ajouter un particulier';
-    $('#person-id').value = p ? p.id : '';
-    $('#person-name').value = p ? p.name : '';
-    $('#person-phone').value = p ? p.phone : '';
-    $('#person-address').value = p ? (p.address || '') : '';
-    $('#person-pass').value = '';
-    $('#person-pass-note').textContent = p ? '(laisser vide pour ne pas le changer)' : '*';
-    $('#person-pass').required = !p;
-    openModal('#person-modal');
-    setTimeout(() => $('#person-name').focus(), 50);
-  }
 
   /* ---------- Export et impression ---------- */
   function csv(rows, name) {
@@ -2823,21 +2478,15 @@ tbody tr:hover{background:#F8FAFC}
     ].map(x => '<tr><th>' + x[0] + '</th><td>' + esc(x[1]) + '</td></tr>').join('');
     const total = (o.fee||0) + (o.cod||0);
     w.document.write('<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>' + esc(o.ref) + '</title>' +
-      /* Cette fenêtre a sa propre feuille de style : la taille du logo doit y être
-         redonnée, sinon l'image sort à sa taille d'origine et pousse le bon
-         sur une deuxième page. Tout est calibré pour tenir sur une seule page A4. */
-      '<style>@page{size:A4 portrait;margin:14mm}' +
-      'body{font-family:system-ui,Arial,sans-serif;margin:0;color:#12242F}h1{font-size:17px;margin:0}' +
-      '.print-logo{width:40mm;height:auto;display:block;margin-bottom:3mm}' +
-      '.ref{font-family:monospace;font-size:15px;font-weight:700;margin-top:3px}' +
-      'table{border-collapse:collapse;width:100%;margin-top:13px}th{text-align:left;width:165px;color:#5C7385;font-size:11.5px;padding:6.5px 0;border-bottom:1px solid #eee;font-weight:600}' +
-      'td{padding:6.5px 0;border-bottom:1px solid #eee;font-size:13px}' +
-      '.total{margin-top:12px;padding:10px 12px;background:#FFF3D8;border-radius:9px;font-weight:800;font-size:15px;display:flex;justify-content:space-between}' +
-      '.sub{font-size:11.5px;font-weight:600;color:#5C7385;margin-top:5px}' +
-      '.sign{margin-top:26px;display:flex;gap:30px;page-break-inside:avoid}' +
-      '.sign div{flex:1;border-top:1px dashed #999;padding-top:6px;font-size:11.5px;color:#5C7385}</style>' +
+      '<style>body{font-family:system-ui,Arial,sans-serif;margin:28px;color:#12242F}h1{font-size:19px;margin:0}' +
+      '.ref{font-family:monospace;font-size:16px;font-weight:700;margin-top:4px}' +
+      'table{border-collapse:collapse;width:100%;margin-top:18px}th{text-align:left;width:170px;color:#5C7385;font-size:12px;padding:8px 0;border-bottom:1px solid #eee;font-weight:600}' +
+      'td{padding:8px 0;border-bottom:1px solid #eee;font-size:14px}' +
+      '.total{margin-top:18px;padding:14px;background:#FFF3D8;border-radius:10px;font-weight:800;font-size:17px;display:flex;justify-content:space-between}' +
+      '.sub{font-size:12px;font-weight:600;color:#5C7385;margin-top:6px}' +
+      '.sign{margin-top:44px;display:flex;gap:30px}.sign div{flex:1;border-top:1px dashed #999;padding-top:6px;font-size:12px;color:#5C7385}</style>' +
       '</head><body>' + (LOGO ? '<img class="print-logo" src="' + LOGO + '" alt="LivraPro">' : '') +
-      '<h1 style="margin-top:6px">Bon de livraison</h1><div class="ref">' + esc(o.ref) + '</div>' +
+      '<h1 style="margin-top:10px">Bon de livraison</h1><div class="ref">' + esc(o.ref) + '</div>' +
       '<table>' + rows + '</table>' +
       '<div class="total"><span>À encaisser par le livreur</span><span>' +
         money(o.payment === 'destinataire' ? total : (o.cod||0)) + '</span></div>' +
@@ -3533,10 +3182,6 @@ tbody tr:hover{background:#F8FAFC}
     $('#btn-print-badges').addEventListener('click', printAllBadges);
     $('#btn-add-client').addEventListener('click', () => openClient());
     $('#btn-copy-portal').addEventListener('click', () => copyLink(portalLink(), 'Lien du portail boutique'));
-    $('#btn-add-person').addEventListener('click', () => openPerson());
-    $('#btn-copy-part').addEventListener('click', () => copyLink(
-      partLink() + '\n\nCréez votre compte en une minute, puis enregistrez votre colis. ' +
-      'Tarif : 5 000 FG le kilomètre.', 'Lien d’inscription particulier'));
 
     $('#search-orders').addEventListener('input', e => { filters.orders = e.target.value; renderOrders(); });
     $('#filter-status').addEventListener('change', e => { filters.status = e.target.value; renderOrders(); });
@@ -3544,12 +3189,11 @@ tbody tr:hover{background:#F8FAFC}
     $('#search-riders').addEventListener('input', e => { filters.riders = e.target.value; renderRiders(); });
     $('#filter-rider-status').addEventListener('change', e => { filters.riderStatus = e.target.value; renderRiders(); });
     $('#search-clients').addEventListener('input', e => { filters.clients = e.target.value; renderClients(); });
-    $('#search-persons').addEventListener('input', e => { filters.persons = e.target.value; renderPersons(); });
     $('#tracking-filter').addEventListener('change', e => { filters.tracking = e.target.value; renderTracking(); });
 
     $('#btn-export-orders').addEventListener('click', () => {
-      const rows = [['Référence','Expéditeur','Type','Destinataire','Téléphone','Enlèvement','Livraison','Colis','Distance (km)','Frais (GNF)','Frais à la charge de','À encaisser (GNF)','Livreur','Statut','Créée le']];
-      S.orders.forEach(o => rows.push([o.ref, senderLabel(o), senderKindLabel(o), o.client, o.phone, o.pickup, o.address, o.description,
+      const rows = [['Référence','Expéditeur','Destinataire','Téléphone','Enlèvement','Livraison','Colis','Distance (km)','Frais (GNF)','Frais à la charge de','À encaisser (GNF)','Livreur','Statut','Créée le']];
+      S.orders.forEach(o => rows.push([o.ref, senderLabel(o), o.client, o.phone, o.pickup, o.address, o.description,
         o.distance, o.fee, o.payment === 'destinataire' ? 'Destinataire' : 'Expéditeur', o.cod || 0,
         riderName(o.riderId) || '', ORDER_STATUS[o.status], fmtDate(o.createdAt)]));
       csv(rows, 'livrapro-livraisons.csv');
@@ -3637,36 +3281,9 @@ tbody tr:hover{background:#F8FAFC}
           : 'Supprimer la boutique ' + c.name + ' ? Son accès sera coupé.';
         if (!confirm(msg)) return;
         /* On garde le nom sur les courses pour ne pas perdre l'historique. */
-        S.orders.filter(o => o.senderId === c.id).forEach(o => {
-          o.senderName = c.name; o.senderId = ''; o.senderKind = 'boutique';
-        });
+        S.orders.filter(o => o.senderId === c.id).forEach(o => { o.senderName = c.name; o.senderId = ''; });
         S.clients = S.clients.filter(x => x.id !== c.id);
         save(); renderAll(); toast('Boutique supprimée', 'ok');
-      }
-    });
-
-    $('#persons-grid').addEventListener('click', e => {
-      const btn = e.target.closest('button'); if (!btn) return;
-      const d = btn.dataset;
-      if (d.pedit) openPerson(d.pedit);
-      if (d.pcopy) {
-        const p = personById(d.pcopy);
-        if (p) copyLink(partLink() + '\n\nIdentifiant : ' + p.phone +
-          '\nMot de passe : celui que vous avez choisi à la création du compte.', 'Accès de ' + p.name);
-      }
-      if (d.pdel) {
-        const p = personById(d.pdel); if (!p) return;
-        const busy = S.orders.filter(o => o.senderId === p.id && o.status !== 'livree' && o.status !== 'annulee');
-        const msg = busy.length
-          ? 'Supprimer le compte de ' + p.name + ' ?\n\n' + busy.length + ' course(s) en cours '
-            + 'resteront dans vos livraisons, à son nom. Son accès sera coupé.'
-          : 'Supprimer le compte particulier de ' + p.name + ' ? Son accès sera coupé.';
-        if (!confirm(msg)) return;
-        S.orders.filter(o => o.senderId === p.id).forEach(o => {
-          o.senderName = p.name; o.senderId = ''; o.senderKind = 'particulier';
-        });
-        S.clients = S.clients.filter(x => x.id !== p.id);
-        save(); renderAll(); toast('Compte particulier supprimé', 'ok');
       }
     });
 
@@ -3680,11 +3297,9 @@ tbody tr:hover{background:#F8FAFC}
       const id = $('#order-id').value, status = $('#order-status').value, riderId = $('#order-rider').value;
       if ((status === 'assignee' || status === 'en_cours') && !riderId) { toast('Choisissez un livreur pour ce statut.', 'err'); return; }
       const senderId = $('#order-sender').value;
-      const senderRec = clientById(senderId);
       const data = {
         senderId: senderId,
-        senderKind: isPerson(senderRec) ? 'particulier' : (senderRec ? 'boutique' : 'agence'),
-        senderName: senderRec ? senderRec.name : 'Agence',
+        senderName: senderId ? (clientById(senderId)||{}).name : 'Agence',
         client: $('#order-client').value.trim(),
         phone: $('#order-phone').value.trim(),
         address: $('#order-address').value.trim(),
@@ -3695,9 +3310,7 @@ tbody tr:hover{background:#F8FAFC}
         fee: toGNF($('#order-fee').value),
         cod: toGNF($('#order-cod').value),
         payment: $('#order-payment').value,
-        riderId: riderId, status: status, photo: photoBuffer,
-        acceptedBy: riderId ? ((id && (S.orders.filter(x => x.id === id)[0] || {}).riderId === riderId)
-          ? (S.orders.filter(x => x.id === id)[0] || {}).acceptedBy || 'agence' : 'agence') : ''
+        riderId: riderId, status: status, photo: photoBuffer
       };
       if (id) {
         const o = S.orders.filter(x => x.id === id)[0], before = o.status;
@@ -3742,16 +3355,14 @@ tbody tr:hover{background:#F8FAFC}
       const p = $('#order-pickup').value.trim() || 'Madina', a = $('#order-address').value.trim();
       const hint = $('#calc-hint');
       if (!a) { toast('Renseignez d\u2019abord l\u2019adresse de livraison.', 'err'); return; }
-      const part = isPerson(clientById($('#order-sender').value));
-      const est = part ? estimatePart(p, a) : estimate(p, a);
+      const est = estimate(p, a);
       hint.hidden = false;
       if (!est.ok) {
         hint.textContent = 'Quartier non reconnu (' + (!est.z1 ? p : a) + '). Saisissez la distance à la main, ou utilisez un nom de quartier de Conakry.';
         return;
       }
       $('#order-distance').value = est.km; $('#order-duration').value = est.min; $('#order-fee').value = fromGNF(est.fee);
-      hint.textContent = 'Estimation ' + est.z1 + ' → ' + est.z2 + ' : ' + est.km + ' km, ' + est.min + ' min, ' + money(est.fee) +
-        (part ? ' (tarif particulier : 5 000 FG le kilomètre).' : ' (tarif boutique).') + ' Ajustez si nécessaire.';
+      hint.textContent = 'Estimation ' + est.z1 + ' → ' + est.z2 + ' : ' + est.km + ' km, ' + est.min + ' min, ' + money(est.fee) + '. Ajustez si nécessaire.';
     });
 
     $('#rider-photo').addEventListener('change', e => {
@@ -3802,31 +3413,6 @@ tbody tr:hover{background:#F8FAFC}
       }
       save(); renderAll(); closeModal($('#client-modal'));
     });
-
-    $('#person-form').addEventListener('submit', async e => {
-      e.preventDefault();
-      const id = $('#person-id').value, pass = $('#person-pass').value;
-      const phone = $('#person-phone').value.trim();
-      if (phoneKey(phone).length < 6) { toast('Entrez un numéro de téléphone complet.', 'err'); return; }
-      if (!id && pass.length < 6) { toast('Donnez un mot de passe d’au moins 6 caractères.', 'err'); return; }
-      if (id && pass && pass.length < 6) { toast('Le nouveau mot de passe doit faire 6 caractères au moins.', 'err'); return; }
-      const dup = personByPhone(phone);
-      if (dup && dup.id !== id) { toast('Ce numéro est déjà celui de ' + dup.name + '.', 'err'); return; }
-      const data = { kind:'particulier', contact:'', code:'',
-        name: $('#person-name').value.trim(), phone: phone,
-        address: $('#person-address').value.trim() };
-      if (id) {
-        const p = personById(id);
-        Object.assign(p, data);
-        if (pass) p.hash = await hash(pass);
-        toast('Particulier mis à jour', 'ok');
-      } else {
-        data.id = uid(); data.createdAt = new Date().toISOString(); data.hash = await hash(pass);
-        S.clients.push(data);
-        toast('Compte ouvert pour ' + data.name, 'ok');
-      }
-      save(); renderAll(); closeModal($('#person-modal'));
-    });
   }
 
   function bindShop() {
@@ -3834,7 +3420,7 @@ tbody tr:hover{background:#F8FAFC}
       e.preventDefault();
       const code = $('#shop-code').value.trim().toUpperCase();
       const h = await hash($('#shop-pass').value);
-      const c = shopList().filter(x => x.code && String(x.code).toUpperCase() === code)[0];
+      const c = S.clients.filter(x => String(x.code).toUpperCase() === code)[0];
       if (!c || c.hash !== h) { $('#shop-login-error').textContent = 'Code boutique ou mot de passe incorrect.'; return; }
       ($('#shop-remember').checked ? localStorage : sessionStorage).setItem(SHOP_SESSION, c.id);
       openShopSession(c);
@@ -3964,265 +3550,6 @@ tbody tr:hover{background:#F8FAFC}
     });
   }
 
-  /* ======================================================================
-     Portail particulier
-     Le compte se crée tout seul depuis le téléphone, sans passer par l'agence.
-     Seule différence avec une boutique : le prix, calculé à la distance,
-     5 000 FG le kilomètre, course minimale 5 000 FG.
-     ====================================================================== */
-  function partOrders() {
-    return S.orders.filter(o => o.senderId === person.id)
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  }
-  function partHint() {
-    const el = $('#pf-hint'); if (!el) return null;
-    const base = 'Tarif : 5 000 FG le kilomètre, course minimale ' + money(TARIF_PART_MIN) + '.';
-    const pickup = $('#pf-pickup').value.trim() || (person && person.address) || '';
-    const dest = $('#pf-address').value.trim();
-    if (!pickup || !dest) { el.textContent = base + ' Renseignez les deux adresses pour voir le prix.'; return null; }
-    const est = estimatePart(pickup, dest);
-    if (!est.ok) {
-      el.textContent = 'Quartier non reconnu (' + (!est.z1 ? pickup : dest) + '). ' + base +
-        ' L’agence fixera le prix après appel.';
-      return est;
-    }
-    el.textContent = 'Environ ' + String(est.km).replace('.', ',') + ' km × 5 000 FG = ' + money(est.fee) +
-      ', soit à peu près ' + est.min + ' min de course. Montant confirmé par l’agence.';
-    return est;
-  }
-  /* Liste des livreurs proposés au particulier : ceux qui sont en service.
-     Le choix reste facultatif — sans choix, la course part au premier disponible. */
-  function fillPartRiders() {
-    const sel = $('#pf-rider'); if (!sel) return;
-    const keep = sel.value;
-    const libres = S.riders.filter(r => r.status === 'disponible' || r.status === 'en_livraison');
-    sel.innerHTML = '<option value="">Premier livreur disponible (recommandé)</option>' +
-      libres.map(r => {
-        const charge = S.orders.filter(o => o.riderId === r.id &&
-          (o.status === 'assignee' || o.status === 'en_cours')).length;
-        return '<option value="' + r.id + '">' + esc(r.name) +
-          ' — ' + esc(r.vehicle || 'moto') +
-          (charge ? ' · ' + charge + ' course' + (charge > 1 ? 's' : '') + ' en cours' : ' · libre') +
-          '</option>';
-      }).join('');
-    if (keep && sel.querySelector('option[value="' + keep + '"]')) sel.value = keep;
-  }
-
-  function renderPart() {
-    if (!person || !$('#part-orders')) return;
-    const fresh = personById(person.id);
-    if (fresh) person = fresh;
-    const all = partOrders();
-    $('#part-name').textContent = person.name;
-    $('#pp-total').textContent = all.length;
-    $('#pp-active').textContent = all.filter(o => o.status !== 'livree' && o.status !== 'annulee').length;
-    $('#pp-done').textContent = all.filter(o => o.status === 'livree').length;
-    $('#pp-spent').textContent = money(all.filter(o => o.status === 'livree' && o.payment !== 'destinataire')
-      .reduce((s, o) => s + (o.fee || 0), 0));
-
-    const q = norm(filters.part);
-    const list = all
-      .filter(o => !filters.partStatus || o.status === filters.partStatus)
-      .filter(o => !q || norm([o.ref, o.client, o.phone, o.address, o.description].join(' ')).indexOf(q) !== -1);
-
-    $('#part-orders').innerHTML = list.length ? list.map(o =>
-      '<div class="ship-card">' +
-        '<div class="ship-head" data-send="' + o.id + '">' +
-          '<span class="ref">' + esc(o.ref) + '</span>' +
-          '<span style="font-weight:700">' + esc(o.client) + '</span>' +
-          '<span style="color:var(--txt-2);font-size:13px">' + esc(o.address) + '</span>' +
-          '<span class="pill ' + o.status + '">' + ORDER_STATUS[o.status] + '</span>' +
-        '</div>' +
-        (openSend === o.id ?
-          '<div class="ship-open">' + routeHtml(o) +
-            '<div class="waybill-grid">' +
-              '<div><div class="field-label">Téléphone</div><div class="field-value">' + esc(o.phone) + '</div></div>' +
-              '<div><div class="field-label">Enlèvement</div><div class="field-value">' + esc(o.pickup || '—') + '</div></div>' +
-              '<div><div class="field-label">Colis</div><div class="field-value">' + esc(o.description || '—') + '</div></div>' +
-              '<div><div class="field-label">Distance</div><div class="field-value">' +
-                (o.distance ? String(o.distance).replace('.', ',') + ' km' : '—') + '</div></div>' +
-              '<div><div class="field-label">Prix</div><div class="field-value">' + money(o.fee) +
-                ' (' + (o.payment === 'destinataire' ? 'payé à la réception' : 'à votre charge') + ')</div></div>' +
-            '</div>' +
-            partRiderBox(o) +
-            '<div class="ship-actions">' +
-              '<button class="btn btn-ghost btn-sm" data-sendlink="' + o.id + '">🔗 Lien de suivi pour le destinataire</button>' +
-            '</div>' +
-          '</div>' : '') +
-      '</div>').join('')
-      : '<div class="panel"><div class="empty"><strong>Aucun envoi</strong>Créez votre première demande depuis l’onglet « Nouvel envoi ».</div></div>';
-  }
-  /* Encart « qui vient chercher le colis » : tant que personne n'a pris la course
-     on le dit clairement, ensuite on donne de quoi appeler le livreur. */
-  function partRiderBox(o) {
-    if (o.status === 'annulee') return '';
-    const r = riderById(o.riderId);
-    if (!r) {
-      return '<div class="rider-box waiting">' +
-        '<span class="rider-avatar">🛵</span>' +
-        '<div><b>En attente d’un livreur</b>' +
-        '<span>Votre colis est proposé aux livreurs en service. Vous verrez ici qui vient le chercher.</span></div></div>';
-    }
-    const how = o.acceptedBy === 'expediteur' ? 'Vous l’avez choisi'
-      : o.acceptedBy === 'livreur' ? 'Il a pris la course'
-      : 'Affecté par l’agence';
-    return '<div class="rider-box">' +
-      '<span class="rider-avatar">' + esc(initials(r.name)) + '</span>' +
-      '<div><b>' + esc(r.name) + '</b>' +
-      '<span>' + how + ' · ' + esc(r.vehicle || 'moto') +
-        (r.plate ? ' · ' + esc(r.plate) : '') + '</span></div>' +
-      '<a class="btn btn-ghost btn-xs" href="tel:' + esc(String(r.phone).replace(/\s/g, '')) + '">📞 Appeler</a>' +
-      '</div>';
-  }
-
-  function openPartSession(p) {
-    person = p;
-    /* L'icône de l'application ouvrira désormais directement cet espace. */
-    try { localStorage.setItem(ROLE_KEY, 'particulier'); } catch (e) {}
-    document.body.classList.remove('locked');
-    $('#part-login').hidden = true;
-    $('#portal-part').hidden = false;
-    $('#pf-pickup').placeholder = p.address || 'Votre quartier';
-    fillPartRiders();
-    partHint();
-    renderPart();
-  }
-
-  function bindPart() {
-    $$('[data-pauth]').forEach(b => b.addEventListener('click', () => {
-      $$('[data-pauth]').forEach(x => x.classList.toggle('active', x === b));
-      const isIn = b.dataset.pauth === 'in';
-      $('#part-login-form').hidden = !isIn;
-      $('#part-signup-form').hidden = isIn;
-      $('#part-login-error').textContent = '';
-      $('#part-signup-error').textContent = '';
-      setTimeout(() => { try { (isIn ? $('#part-phone') : $('#pu-name')).focus(); } catch (e) {} }, 40);
-    }));
-
-    $('#part-login-form').addEventListener('submit', async e => {
-      e.preventDefault();
-      const p = personByPhone($('#part-phone').value);
-      const h = await hash($('#part-pass').value);
-      if (!p || p.hash !== h) { $('#part-login-error').textContent = 'Numéro ou mot de passe incorrect.'; return; }
-      ($('#part-remember').checked ? localStorage : sessionStorage).setItem(PART_SESSION, p.id);
-      openPartSession(p);
-      toast('Bonjour ' + String(p.name).split(' ')[0]);
-    });
-
-    $('#part-signup-form').addEventListener('submit', async e => {
-      e.preventDefault();
-      const err = $('#part-signup-error'); err.textContent = '';
-      const name = $('#pu-name').value.trim();
-      const phone = $('#pu-phone').value.trim();
-      const pass = $('#pu-pass').value;
-      if (name.length < 3) { err.textContent = 'Entrez votre nom et votre prénom.'; return; }
-      if (phoneKey(phone).length < 6) { err.textContent = 'Entrez votre numéro de téléphone complet.'; return; }
-      if (pass.length < 6) { err.textContent = 'Choisissez un mot de passe de 6 caractères au moins.'; return; }
-      if (pass !== $('#pu-pass2').value) { err.textContent = 'Les deux mots de passe ne correspondent pas.'; return; }
-      await pull();                                   // un même numéro ne doit pas ouvrir deux comptes
-      if (personByPhone(phone)) {
-        err.textContent = 'Ce numéro a déjà un compte. Passez par « J’ai un compte ».'; return;
-      }
-      const p = { id: uid(), kind: 'particulier', name: name, contact: '', phone: phone,
-        address: $('#pu-address').value.trim(), code: '', hash: await hash(pass),
-        createdAt: new Date().toISOString() };
-      S.clients.push(p); save();
-      localStorage.setItem(PART_SESSION, p.id);
-      openPartSession(p);
-      toast('Compte créé. Bienvenue ' + name.split(' ')[0] + ' !', 'ok');
-    });
-
-    $('#part-logout').addEventListener('click', () => {
-      localStorage.removeItem(PART_SESSION); sessionStorage.removeItem(PART_SESSION);
-      person = null;
-      $('#portal-part').hidden = true; $('#part-login').hidden = false;
-      $('#part-pass').value = ''; $('#part-login-error').textContent = '';
-    });
-
-    $$('[data-qtab]').forEach(b => b.addEventListener('click', () => {
-      $$('[data-qtab]').forEach(x => x.classList.toggle('active', x === b));
-      const isList = b.dataset.qtab === 'list';
-      $('#qtab-list').hidden = !isList; $('#qtab-new').hidden = isList;
-      if (!isList) { fillPartRiders(); partHint(); }
-    }));
-    $('#part-search').addEventListener('input', e => { filters.part = e.target.value; renderPart(); });
-    $('#part-filter').addEventListener('change', e => { filters.partStatus = e.target.value; renderPart(); });
-
-    $('#part-orders').addEventListener('click', e => {
-      const link = e.target.closest('[data-sendlink]');
-      if (link) {
-        const o = S.orders.filter(x => x.id === link.dataset.sendlink)[0];
-        if (o) copyLink(trackLink(o.ref), 'Lien de suivi de ' + o.ref);
-        return;
-      }
-      const head = e.target.closest('[data-send]');
-      if (head) { openSend = openSend === head.dataset.send ? null : head.dataset.send; renderPart(); }
-    });
-
-    $('#pf-address').addEventListener('input', partHint);
-    $('#pf-pickup').addEventListener('input', partHint);
-    $('#pf-rider').addEventListener('change', e => {
-      const r = riderById(e.target.value);
-      $('#pf-rider-hint').textContent = r
-        ? 'La course est confiée directement à ' + r.name + '. S’il ne peut pas la prendre, '
-          + 'l’agence la remettra à un autre livreur.'
-        : 'Votre colis est proposé à tous les livreurs en service : le premier qui accepte vient le chercher.';
-    });
-    $('#pf-estimate').addEventListener('click', () => {
-      const est = partHint();
-      if (est && est.ok) toast('Prix estimé : ' + money(est.fee), 'ok');
-    });
-
-    $('#part-form').addEventListener('submit', e => {
-      e.preventDefault();
-      const pickup = $('#pf-pickup').value.trim() || person.address || '';
-      const address = $('#pf-address').value.trim();
-      const est = estimatePart(pickup, address);
-      const now = new Date().toISOString();
-      const pay = (document.querySelector('input[name="ppay"]:checked') || {}).value || 'expediteur';
-      /* Livreur désigné : la course lui est confiée tout de suite. Sinon elle part
-         dans le lot commun et le premier livreur disponible la prend. */
-      const chosen = riderById($('#pf-rider').value);
-      const o = {
-        id: uid(), ref: newRef(), origin: 'particulier', senderKind: 'particulier', tarif: 'particulier',
-        senderId: person.id, senderName: person.name,
-        client: $('#pf-name').value.trim(), phone: $('#pf-phone').value.trim(),
-        address: address, pickup: pickup, description: $('#pf-desc').value.trim(),
-        distance: est.ok ? est.km : null, duration: est.ok ? est.min : null,
-        fee: est.ok ? est.fee : 0, cod: 0, payment: pay,
-        riderId: chosen ? chosen.id : '',
-        acceptedBy: chosen ? 'expediteur' : '',
-        status: chosen ? 'assignee' : 'en_attente',
-        createdAt: now, updatedAt: now, _v: Date.now(),
-        history: chosen ? [{ status:'en_attente', at:now }, { status:'assignee', at:now }]
-                        : [{ status:'en_attente', at:now }],
-        photo: null
-      };
-      S.orders.push(o);
-      S.notifs.unshift({ id: uid(), icon: '🙋',
-        text: person.name + ' (particulier) a enregistré ' + o.ref + ' → ' + o.address +
-              (chosen ? ' · livreur demandé : ' + chosen.name : ' · à prendre'),
-        at: now, read: false });
-      const me = personById(person.id);
-      if (me && !me.address && pickup) me.address = pickup;     // retenu pour la prochaine fois
-      save(); renderPart();
-      e.target.reset();
-      $('#pf-pickup').placeholder = person.address || 'Votre quartier';
-      fillPartRiders();
-      $('#pf-rider-hint').textContent =
-        'Votre colis est proposé à tous les livreurs en service : le premier qui accepte vient le chercher.';
-      partHint();
-      $('#part-done').innerHTML =
-        '<div class="ref-out"><small>Demande enregistrée. Un livreur passe récupérer le colis.</small>' +
-        '<span class="ref">' + esc(o.ref) + '</span>' +
-        '<button class="btn btn-sm" id="new-send-link">🔗 Copier le lien de suivi</button></div>';
-      const l = $('#new-send-link');
-      if (l) l.addEventListener('click', () => copyLink(trackLink(o.ref), 'Lien de suivi de ' + o.ref));
-      toast('Demande envoyée sous ' + o.ref + (est.ok ? ' — ' + money(o.fee) : '') +
-        (chosen ? ' · confiée à ' + chosen.name : ''), 'ok');
-    });
-  }
-
   function bindPublic() {
     $('#pub-search').addEventListener('click', () => renderPublic($('#pub-query').value.trim()));
     $('#pub-query').addEventListener('keydown', e => { if (e.key === 'Enter') renderPublic(e.target.value.trim()); });
@@ -4257,7 +3584,7 @@ tbody tr:hover{background:#F8FAFC}
     }
     let saved = null;
     try { saved = localStorage.getItem(ROLE_KEY); } catch (e) {}
-    if (saved === 'boutique' || saved === 'particulier' || saved === 'livreur') { goRole(saved, true); return; }
+    if (saved === 'boutique' || saved === 'livreur') { goRole(saved, true); return; }
 
     document.body.classList.remove('locked');
     $('#role-pick').hidden = false;
@@ -4290,10 +3617,9 @@ tbody tr:hover{background:#F8FAFC}
 
   /* Une seule application installable : celle des boutiques et des livreurs.
      L'espace agence reste un simple lien web. */
-  const APP_MODES = { app: 1, boutique: 1, particulier: 1, livreur: 1 };
+  const APP_MODES = { app: 1, boutique: 1, livreur: 1 };
   function installHost() {
-    return $('#portal .p-shop') || $('#portal-part .p-shop') || $('#rider-portal .p-shop')
-      || $('#role-pick .role-grid') || $('.p-top');
+    return $('#portal .p-shop') || $('#rider-portal .p-shop') || $('#role-pick .role-grid') || $('.p-top');
   }
   function setupInstall() {
     const link = $('#manifest-link');
@@ -4380,27 +3706,20 @@ tbody tr:hover{background:#F8FAFC}
         address:'Kipé, carrefour Constantin', code:'BTQ-1002', hash:shopHash, createdAt:new Date().toISOString() }
     ];
 
-    const partHash = await hash('particulier123');
-    S.clients.push({ id:uid(), kind:'particulier', name:'Sékou Condé', contact:'', phone:'664 11 90 22',
-      address:'Taouyah', code:'', hash:partHash, createdAt:new Date().toISOString() });
-
     const now = Date.now();
     const demo = [
       { s:0, client:'Mariama Diallo', phone:'625 81 36 46', address:'Kipé, carrefour Constantin', desc:'2 sacs textile', status:'en_cours', rider:0, h:3, pay:'expediteur', cod:150000, origin:'boutique' },
       { s:1, client:'Ibrahima Sow', phone:'612 39 83 18', address:'Kaloum, Almamya', desc:'Coffret cosmétiques', status:'livree', rider:1, h:26, pay:'destinataire', cod:0, origin:'boutique' },
       { s:null, client:'Aguibou Bah', phone:'621 04 77 30', address:'Ratoma, Cosa', desc:'Valise 18 kg', status:'assignee', rider:0, h:1, pay:'expediteur', cod:0, origin:'agence', pickup:'Aéroport Gbessia' },
-      { s:0, client:'Fatoumata Keita', phone:'623 55 21 09', address:'Lambanyi', desc:'Colis fragile', status:'en_attente', rider:null, h:0.4, pay:'expediteur', cod:80000, origin:'boutique' },
-      { p:0, client:'Hadja Bintou Soumah', phone:'666 32 40 18', address:'Nongo', desc:'Enveloppe de documents', status:'livree', rider:1, h:8, pay:'expediteur', cod:0, origin:'particulier' }
+      { s:0, client:'Fatoumata Keita', phone:'623 55 21 09', address:'Lambanyi', desc:'Colis fragile', status:'en_attente', rider:null, h:0.4, pay:'expediteur', cod:80000, origin:'boutique' }
     ];
     S.orders = demo.map((d, i) => {
-      const part = d.p != null;
-      const sender = part ? personList()[d.p] : (d.s === null ? null : S.clients[d.s]);
+      const sender = d.s === null ? null : S.clients[d.s];
       const pickup = d.pickup || (sender ? sender.address : 'Madina, entrepôt');
-      const est = part ? estimatePart(pickup, d.address) : estimate(pickup, d.address);
+      const est = estimate(pickup, d.address);
       const created = new Date(now - d.h*3600000).toISOString();
       const o = {
         id: uid(), ref: '', origin: d.origin,
-        senderKind: part ? 'particulier' : (sender ? 'boutique' : 'agence'),
         senderId: sender ? sender.id : '', senderName: sender ? sender.name : 'Agence',
         client: d.client, phone: d.phone, address: d.address, pickup: pickup, description: d.desc,
         distance: est.ok ? est.km : null, duration: est.ok ? est.min : null, fee: est.ok ? est.fee : 25000,
@@ -4440,7 +3759,6 @@ tbody tr:hover{background:#F8FAFC}
       document.body.classList.remove('locked');
       $('.app').remove(); $('#login-screen').remove(); $('#shop-login').remove(); $('#portal').remove();
       $('#rider-login').remove(); $('#rider-portal').remove(); $('#role-pick').remove();
-      $('#part-login').remove(); $('#portal-part').remove();
       $('#public').hidden = false;
       document.title = 'LivraPro — suivre mon colis';
       bindPublic();
@@ -4462,7 +3780,6 @@ tbody tr:hover{background:#F8FAFC}
       $('.app').remove(); $('#login-screen').remove(); $('#shop-login').remove();
       $('#portal').remove(); $('#public').remove();
       $('#rider-login').remove(); $('#rider-portal').remove();
-      $('#part-login').remove(); $('#portal-part').remove();
       setupHome();
       return;
     }
@@ -4471,7 +3788,6 @@ tbody tr:hover{background:#F8FAFC}
       $('.app').remove(); $('#login-screen').remove(); $('#shop-login').remove();
       $('#portal').remove(); $('#public').remove();
       $('#rider-login').remove(); $('#rider-portal').remove();
-      $('#part-login').remove(); $('#portal-part').remove();
       setupRolePick();
       setTimeout(setupInstall, 0);
       return;
@@ -4480,7 +3796,6 @@ tbody tr:hover{background:#F8FAFC}
     if (MODE === 'livreur') {
       $('.app').remove(); $('#login-screen').remove(); $('#shop-login').remove();
       $('#portal').remove(); $('#public').remove(); $('#role-pick').remove();
-      $('#part-login').remove(); $('#portal-part').remove();
       document.title = 'LivraPro — mes courses';
       setupRoleSwitch();
       riderToken = decodeURIComponent(location.hash.slice(1)) || P.get('t') || '';
@@ -4508,26 +3823,9 @@ tbody tr:hover{background:#F8FAFC}
       return;
     }
 
-    if (MODE === 'particulier') {
-      $('.app').remove(); $('#login-screen').remove(); $('#shop-login').remove();
-      $('#portal').remove(); $('#public').remove();
-      $('#rider-login').remove(); $('#rider-portal').remove(); $('#role-pick').remove();
-      document.title = 'LivraPro — envoyer un colis';
-      setupRoleSwitch();
-      $('#part-login').hidden = false;
-      bindPart();
-      await pull();
-      const pid = localStorage.getItem(PART_SESSION) || sessionStorage.getItem(PART_SESSION);
-      const me = pid ? personById(pid) : null;
-      if (me) openPartSession(me); else setTimeout(() => $('#part-phone').focus(), 120);
-      setInterval(async () => { await pull(); fillPartRiders(); renderPart(); }, 15000);
-      return;
-    }
-
     if (MODE === 'boutique') {
       $('.app').remove(); $('#login-screen').remove(); $('#public').remove();
       $('#rider-login').remove(); $('#rider-portal').remove(); $('#role-pick').remove();
-      $('#part-login').remove(); $('#portal-part').remove();
       document.title = 'LivraPro — espace boutique';
       setupRoleSwitch();
       $('#shop-login').hidden = false;
@@ -4543,7 +3841,6 @@ tbody tr:hover{background:#F8FAFC}
     /* Espace agence */
     $('#shop-login').remove(); $('#portal').remove(); $('#public').remove();
     $('#rider-login').remove(); $('#rider-portal').remove(); $('#role-pick').remove();
-    $('#part-login').remove(); $('#portal-part').remove();
     if (ensureRiderAccess()) save();
     $('#currency-select').value = S.settings.currency;
     $('#setting-sound').checked = !!S.settings.sound;
