@@ -618,6 +618,52 @@ tbody tr:hover{background:#F8FAFC}
     </div>
   </div>
 
+  <!-- ========== Espace particulier : connexion et inscription ========== -->
+  <div id="part-login" class="login-screen" hidden>
+    <div class="login-card">
+      <div class="login-logo-img asset-logo" role="img" aria-label="LivraPro"></div>
+      <h2 class="login-title">Espace particulier</h2>
+      <p class="login-sub">Envoyez vos colis à Conakry et suivez chaque course</p>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button type="button" class="btn btn-accent btn-xs" id="part-tab-login">Se connecter</button>
+        <button type="button" class="btn btn-ghost btn-xs" id="part-tab-reg">Créer mon compte</button>
+      </div>
+      <form id="part-login-form">
+        <div class="form-group">
+          <label>Téléphone</label>
+          <input type="tel" id="part-phone" placeholder="Ex : 620 00 00 00" autocomplete="username" required>
+        </div>
+        <div class="form-group" style="margin-top:12px">
+          <label>Mot de passe</label>
+          <input type="password" id="part-pass" placeholder="••••••••" autocomplete="current-password" required>
+        </div>
+        <label class="login-remember"><input type="checkbox" id="part-remember" checked> Rester connecté sur cet appareil</label>
+        <button type="submit" class="btn btn-accent login-btn">Se connecter</button>
+      </form>
+      <form id="part-reg-form" hidden>
+        <div class="form-group">
+          <label>Nom complet</label>
+          <input type="text" id="part-name" placeholder="Votre nom" autocomplete="name" required>
+        </div>
+        <div class="form-group" style="margin-top:12px">
+          <label>Téléphone</label>
+          <input type="tel" id="part-reg-phone" placeholder="Ex : 620 00 00 00" autocomplete="tel" required>
+        </div>
+        <div class="form-group" style="margin-top:12px">
+          <label>Mot de passe (6 caractères minimum)</label>
+          <input type="password" id="part-reg-pass" placeholder="••••••••" autocomplete="new-password" minlength="6" required>
+        </div>
+        <div class="form-group" style="margin-top:12px">
+          <label>Confirmer le mot de passe</label>
+          <input type="password" id="part-reg-pass2" placeholder="••••••••" autocomplete="new-password" minlength="6" required>
+        </div>
+        <button type="submit" class="btn btn-accent login-btn" style="margin-top:14px">Créer mon compte</button>
+      </form>
+      <p class="login-error" id="part-error"></p>
+      <p class="login-hint">Le prix est calculé à la distance : 5 000 GNF par kilomètre.</p>
+    </div>
+  </div>
+
   <!-- ========== Choix du profil (application installée) ========== -->
   <div id="role-pick" class="login-screen" hidden>
     <div class="login-card">
@@ -632,6 +678,10 @@ tbody tr:hover{background:#F8FAFC}
         <button class="role-btn" data-role="boutique">
           <span class="role-ico">🏪</span>
           <span class="role-txt"><b>Une boutique</b><span>Confier un colis et suivre mes expéditions</span></span>
+        </button>
+        <button class="role-btn" data-role="particulier">
+          <span class="role-ico">👤</span>
+          <span class="role-txt"><b>Un particulier</b><span>Envoyer un colis, créer mon compte</span></span>
         </button>
         <button class="role-btn" data-role="livreur">
           <span class="role-ico">🛵</span>
@@ -1330,10 +1380,11 @@ tbody tr:hover{background:#F8FAFC}
     return { folder: folder, root: location.origin + dir };
   })();
   const ROLE_KEY = 'livrapro.role';
+  const PARTICULIER = has('particulier');
   const MODE =
       (has('app') || LOC.folder === 'app') ? 'app'
     : (has('agence') || has('admin')) ? 'agence'
-    : (has('boutique') || has('client') || LOC.folder === 'boutique') ? 'boutique'
+    : (has('boutique') || has('client') || has('particulier') || LOC.folder === 'boutique') ? 'boutique'
     : (has('livreur') || LOC.folder === 'livreur') ? 'livreur'
     : (has('suivi') || LOC.folder === 'suivi') ? 'suivi'
     : 'accueil';          /* la racine : les trois portes */
@@ -1773,13 +1824,13 @@ tbody tr:hover{background:#F8FAFC}
     const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a[0]))*Math.cos(toRad(b[0]))*Math.sin(dLng/2)**2;
     return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1-s));
   }
-  function estimate(pickup, dest) {
+  function estimate(pickup, dest, tarif) {
     const z1 = findZone(pickup), z2 = findZone(dest);
     if (!z1 || !z2) return { ok:false, z1:z1, z2:z2 };
     const km = Math.max(0.8, haversine(ZONES[z1], ZONES[z2]) * 1.35);
     return { ok:true, z1:z1, z2:z2, km:+km.toFixed(1),
              min: Math.round(km/VITESSE*60) + 8,
-             fee: Math.round((TARIF_BASE + km*TARIF_KM)/500)*500 };
+             fee: Math.round(((tarif ? tarif.base : TARIF_BASE) + km*(tarif ? tarif.km : TARIF_KM))/500)*500 };
   }
 
   function syncRiders() {
@@ -2074,7 +2125,7 @@ tbody tr:hover{background:#F8FAFC}
   function openShopSession(c) {
     shop = c;
     /* L'icône de l'application ouvrira désormais directement cet espace. */
-    try { localStorage.setItem(ROLE_KEY, 'boutique'); } catch (e) {}
+    try { localStorage.setItem(ROLE_KEY, PARTICULIER ? 'particulier' : 'boutique'); } catch (e) {}
     document.body.classList.remove('locked');
     $('#shop-login').hidden = true;
     $('#portal').hidden = false;
@@ -3415,6 +3466,52 @@ tbody tr:hover{background:#F8FAFC}
     });
   }
 
+  /* ======================================================================
+     Espace particulier : compte libre (téléphone + mot de passe).
+     Le compte est une fiche client de type « particulier » ; le prix suit
+     le tarif kilométrique particulier (5 000 GNF / km, sans frais de base).
+     ====================================================================== */
+  const TARIF_PARTICULIER = { base: 0, km: 5000 };
+  const normTel = t => String(t || '').replace(/[^0-9+]/g, '');
+  const clientByTel = t => S.clients.filter(x => x.kind === 'particulier' && normTel(x.phone) === normTel(t))[0] || null;
+  const tarifShop = () => (shop && shop.kind === 'particulier') ? TARIF_PARTICULIER : undefined;
+
+  function bindParticulier() {
+    const err = msg => { $('#part-error').textContent = msg; };
+    $('#part-tab-login').addEventListener('click', () => { $('#part-login-form').hidden = false; $('#part-reg-form').hidden = true; err(''); });
+    $('#part-tab-reg').addEventListener('click', () => { $('#part-login-form').hidden = true; $('#part-reg-form').hidden = false; err(''); });
+
+    $('#part-login-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const c = clientByTel($('#part-phone').value);
+      const h = await hash($('#part-pass').value);
+      if (!c || c.hash !== h) { err('Téléphone ou mot de passe incorrect.'); return; }
+      ($('#part-remember').checked ? localStorage : sessionStorage).setItem(SHOP_SESSION, c.id);
+      $('#part-pass').value = ''; err('');
+      openShopSession(c);
+      toast('Bienvenue, ' + c.name);
+    });
+
+    $('#part-reg-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const name = $('#part-name').value.trim();
+      const tel = normTel($('#part-reg-phone').value);
+      const p1 = $('#part-reg-pass').value, p2 = $('#part-reg-pass2').value;
+      if (tel.replace(/\D/g, '').length < 8) { err('Numéro de téléphone invalide.'); return; }
+      if (p1.length < 6) { err('Le mot de passe doit contenir au moins 6 caractères.'); return; }
+      if (p1 !== p2) { err('Les deux mots de passe ne correspondent pas.'); return; }
+      if (clientByTel(tel)) { err('Un compte existe déjà avec ce numéro. Connectez-vous.'); return; }
+      const c = { id: uid(), kind: 'particulier', name: name, phone: tel,
+                  code: 'PART-' + tel.replace(/\D/g, ''), address: '',
+                  createdAt: new Date().toISOString(), hash: await hash(p1) };
+      S.clients.push(c); save();
+      ($('#part-remember').checked ? localStorage : sessionStorage).setItem(SHOP_SESSION, c.id);
+      e.target.reset(); err('');
+      openShopSession(c);
+      toast('Compte créé. Bienvenue, ' + name, 'ok');
+    });
+  }
+
   function bindShop() {
     $('#shop-login-form').addEventListener('submit', async e => {
       e.preventDefault();
@@ -3428,7 +3525,9 @@ tbody tr:hover{background:#F8FAFC}
     });
     $('#shop-logout').addEventListener('click', () => {
       localStorage.removeItem(SHOP_SESSION); sessionStorage.removeItem(SHOP_SESSION);
-      shop = null; $('#portal').hidden = true; $('#shop-login').hidden = false;
+      const wasParticulier = PARTICULIER;
+      shop = null; $('#portal').hidden = true;
+      if (wasParticulier) $('#part-login').hidden = false; else $('#shop-login').hidden = false;
       $('#shop-pass').value = ''; $('#shop-login-error').textContent = '';
     });
 
@@ -3452,7 +3551,7 @@ tbody tr:hover{background:#F8FAFC}
     });
 
     $('#ship-estimate').addEventListener('click', () => {
-      const est = estimate($('#ship-pickup').value.trim() || shop.address || 'Madina', $('#ship-address').value.trim());
+      const est = estimate($('#ship-pickup').value.trim() || shop.address || 'Madina', $('#ship-address').value.trim(), tarifShop());
       const hint = $('#ship-hint'); hint.hidden = false;
       hint.textContent = est.ok
         ? 'Frais estimés : ' + money(est.fee) + ' pour environ ' + est.km + ' km (' + est.min + ' min). Le montant définitif est confirmé par l\u2019agence.'
@@ -3463,7 +3562,7 @@ tbody tr:hover{background:#F8FAFC}
       e.preventDefault();
       const pickup = $('#ship-pickup').value.trim() || shop.address || '';
       const address = $('#ship-address').value.trim();
-      const est = estimate(pickup, address);
+      const est = estimate(pickup, address, tarifShop());
       const now = new Date().toISOString();
       const pay = (document.querySelector('input[name="pay"]:checked') || {}).value || 'expediteur';
       const o = {
@@ -3584,7 +3683,7 @@ tbody tr:hover{background:#F8FAFC}
     }
     let saved = null;
     try { saved = localStorage.getItem(ROLE_KEY); } catch (e) {}
-    if (saved === 'boutique' || saved === 'livreur') { goRole(saved, true); return; }
+    if (saved === 'boutique' || saved === 'livreur' || saved === 'particulier') { goRole(saved, true); return; }
 
     document.body.classList.remove('locked');
     $('#role-pick').hidden = false;
@@ -3828,8 +3927,10 @@ tbody tr:hover{background:#F8FAFC}
       $('#rider-login').remove(); $('#rider-portal').remove(); $('#role-pick').remove();
       document.title = 'LivraPro — espace boutique';
       setupRoleSwitch();
-      $('#shop-login').hidden = false;
+      if (PARTICULIER) { $('#shop-login').hidden = true; $('#part-login').hidden = false; document.title = 'LivraPro — espace particulier'; }
+      else { $('#shop-login').hidden = false; }
       bindShop();
+      bindParticulier();
       await pull();
       const sid = localStorage.getItem(SHOP_SESSION) || sessionStorage.getItem(SHOP_SESSION);
       const c = sid ? clientById(sid) : null;
