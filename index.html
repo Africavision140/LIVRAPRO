@@ -1578,12 +1578,18 @@ tbody tr:hover{background:#F8FAFC}
     pulling = true;
     try {
       for (const key of Object.keys(COLLS)) {
-        const res = await fsFetch(cloudUrl(COLLS[key]) + '?pageSize=300');
-        if (!res.ok && res.status !== 404) throw new Error(res.status);
-        const data = res.status === 404 ? {} : await res.json();
-        const docs = (data.documents || []).map(d => {
-          try { return JSON.parse(d.fields.json.stringValue); } catch (e) { return null; }
-        }).filter(Boolean);
+        /* Lecture par pages : sans cela, seuls les 300 premiers enregistrements arrivent. */
+        let docs = [], pageToken = '';
+        for (let page = 0; page < 200; page++) {
+          const res = await fsFetch(cloudUrl(COLLS[key]) + '?pageSize=300' + (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : ''));
+          if (!res.ok && res.status !== 404) throw new Error(res.status);
+          const data = res.status === 404 ? {} : await res.json();
+          docs = docs.concat((data.documents || []).map(d => {
+            try { return JSON.parse(d.fields.json.stringValue); } catch (e) { return null; }
+          }).filter(Boolean));
+          if (!data.nextPageToken) break;
+          pageToken = data.nextPageToken;
+        }
         mergeRemote(key, docs);
       }
       setCloud('on');
@@ -1659,7 +1665,7 @@ tbody tr:hover{background:#F8FAFC}
           live[rec.id] = 1;
           const body = stable(rec);
           if (snapshot[key][rec.id] === body) continue;
-          rec._v = Date.now();
+          rec._v = Math.max(Date.now(), (rec._v || 0) + 1);   /* version toujours croissante, même si l'horloge de l'appareil est en retard */
           const res = await fsFetch(cloudUrl(COLLS[key]) + '/' + encodeURIComponent(rec.id), {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
