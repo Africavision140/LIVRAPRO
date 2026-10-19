@@ -1485,7 +1485,8 @@ tbody tr:hover{background:#F8FAFC}
   const COLLS = { orders:'orders', riders:'riders', clients:'clients' };
   const snapshot = { orders:{}, riders:{}, clients:{} };
   let cloudState = CLOUD.projectId ? 'sync' : 'local';
-  let pushTimer = null, pulling = false;
+  let pushTimer = null, pushRetry = null, pulling = false;
+  let pushBusy = false, pushAgain = false, pushFailures = 0;
 
   /* ======================================================================
      Authentification anonyme
@@ -1596,6 +1597,8 @@ tbody tr:hover{background:#F8FAFC}
       save2local();
       renderAll();
       pulledOnce = true;
+      /* Des envois restés en attente (réseau, règles, jeton) partent maintenant. */
+      if (hasPending()) schedulePush();
     } catch (e) {
       setCloud('off');
       if (authFailed) {
@@ -1656,8 +1659,24 @@ tbody tr:hover{background:#F8FAFC}
     clearTimeout(pushTimer);
     pushTimer = setTimeout(push, 700);
   }
+  /* Vrai si un enregistrement local n'a pas encore été confirmé par la base (ou une suppression reste à envoyer). */
+  function hasPending() {
+    return Object.keys(COLLS).some(key => {
+      const ids = {};
+      for (const rec of S[key]) {
+        ids[rec.id] = 1;
+        if (snapshot[key][rec.id] !== stable(rec)) return true;
+      }
+      return Object.keys(snapshot[key]).some(id => !ids[id]);
+    });
+  }
+
   async function push() {
     if (!CLOUD.projectId) return;
+    if (pushBusy) { pushAgain = true; return; }
+    pushBusy = true;
+    clearTimeout(pushRetry);
+    let failed = null;
     try {
       for (const key of Object.keys(COLLS)) {
         const live = {};
@@ -1666,25 +1685,39 @@ tbody tr:hover{background:#F8FAFC}
           const body = stable(rec);
           if (snapshot[key][rec.id] === body) continue;
           rec._v = Math.max(Date.now(), (rec._v || 0) + 1);   /* version toujours croissante, même si l'horloge de l'appareil est en retard */
-          const res = await fsFetch(cloudUrl(COLLS[key]) + '/' + encodeURIComponent(rec.id), {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fields: { json: { stringValue: JSON.stringify(rec) } } })
-          });
-          if (!res.ok) throw new Error(res.status);
-          snapshot[key][rec.id] = body;
+          try {
+            const res = await fsFetch(cloudUrl(COLLS[key]) + '/' + encodeURIComponent(rec.id), {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fields: { json: { stringValue: JSON.stringify(rec) } } })
+            });
+            if (!res.ok) { failed = failed || res.status; continue; }   /* on continue avec les autres */
+            snapshot[key][rec.id] = body;
+          } catch (e) { failed = failed || 'réseau'; }
         }
         for (const id of Object.keys(snapshot[key])) {
           if (live[id]) continue;
-          await fsFetch(cloudUrl(COLLS[key]) + '/' + encodeURIComponent(id), { method: 'DELETE' });
-          delete snapshot[key][id];
+          try {
+            const res = await fsFetch(cloudUrl(COLLS[key]) + '/' + encodeURIComponent(id), { method: 'DELETE' });
+            if (!res.ok && res.status !== 404) { failed = failed || res.status; continue; }
+            delete snapshot[key][id];
+          } catch (e) { failed = failed || 'réseau'; }
         }
       }
-      setCloud('on');
-      save2local();
-    } catch (e) {
-      setCloud('off');
+    } finally {
+      pushBusy = false;
     }
+    save2local();
+    if (failed) {
+      setCloud('off');
+      pushFailures++;
+      if (pushFailures === 1) toast('Envoi à l’agence non confirmé (erreur ' + failed + '). Nouvel essai automatique.', 'err');
+      pushRetry = setTimeout(push, Math.min(60000, 5000 * pushFailures));
+    } else {
+      pushFailures = 0;
+      setCloud('on');
+    }
+    if (pushAgain) { pushAgain = false; schedulePush(); }
   }
 
   /* ---------- Utilitaires ---------- */
