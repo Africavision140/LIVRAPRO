@@ -2147,6 +2147,7 @@ tbody tr:hover{background:#F8FAFC}
     try { localStorage.setItem(ROLE_KEY, PARTICULIER ? 'particulier' : 'boutique'); } catch (e) {}
     document.body.classList.remove('locked');
     $('#shop-login').hidden = true;
+    if ($('#part-login')) $('#part-login').hidden = true;
     $('#portal').hidden = false;
     $('#ship-pickup').placeholder = c.address || 'Votre boutique';
     renderShop();
