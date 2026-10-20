@@ -1183,6 +1183,10 @@ tbody tr:hover{background:#F8FAFC}
             <input type="tel" id="client-phone" required placeholder="Ex : 622 00 00 00">
           </div>
           <div class="form-group full">
+            <label>E-mail de la boutique * (sert à la connexion et à la réinitialisation)</label>
+            <input type="email" id="client-email" placeholder="Ex : boutique@exemple.com" autocomplete="off">
+          </div>
+          <div class="form-group full">
             <label>Adresse d'enlèvement habituelle</label>
             <input type="text" id="client-address" placeholder="Ex : Madina, marché, allée 4" list="zones">
           </div>
@@ -1495,6 +1499,15 @@ tbody tr:hover{background:#F8FAFC}
      Le jeton vit une heure ; on le renouvelle avec le jeton de rafraîchissement,
      conservé sur l'appareil.
      ====================================================================== */
+  const BUILD = 'v2026-10-20b';
+  const FETCH_TIMEOUT = 15000;
+  /* Une requête sans réponse ne doit jamais bloquer l'envoi : au bout de 15 s elle échoue et l'appareil réessaie. */
+  async function fetchT(url, o) {
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), FETCH_TIMEOUT);
+    try { return await fetch(url, Object.assign({}, o || {}, { signal: ac.signal })); }
+    finally { clearTimeout(t); }
+  }
   const AUTH = { token: '', expires: 0, refresh: '' };
   const AUTH_KEY = 'livrapro.auth';
   let authFailed = false;
@@ -1507,7 +1520,7 @@ tbody tr:hover{background:#F8FAFC}
     let d = null;
     if (AUTH.refresh) {                                  // renouvellement
       try {
-        const r = await fetch('https://securetoken.googleapis.com/v1/token?key=' + CLOUD.apiKey, {
+        const r = await fetchT('https://securetoken.googleapis.com/v1/token?key=' + CLOUD.apiKey, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(AUTH.refresh)
@@ -1520,7 +1533,7 @@ tbody tr:hover{background:#F8FAFC}
     }
     if (!d) {                                            // première ouverture
       try {
-        const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + CLOUD.apiKey, {
+        const r = await fetchT('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + CLOUD.apiKey, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ returnSecureToken: true })
@@ -1543,13 +1556,13 @@ tbody tr:hover{background:#F8FAFC}
     const o = Object.assign({}, opt || {});
     const t = await authToken();
     o.headers = Object.assign({}, o.headers || {}, t ? { Authorization: 'Bearer ' + t } : {});
-    let res = await fetch(url, o);
+    let res = await fetchT(url, o);
     if ((res.status === 401 || res.status === 403) && CLOUD.apiKey) {
       AUTH.token = ''; AUTH.expires = 0;
       const t2 = await authToken();
       if (t2) {
         o.headers.Authorization = 'Bearer ' + t2;
-        res = await fetch(url, o);
+        res = await fetchT(url, o);
       }
     }
     return res;
@@ -1561,7 +1574,10 @@ tbody tr:hover{background:#F8FAFC}
 
   function setCloud(state) {
     cloudState = state;
-    const label = { local:'Local', sync:'Synchronisation…', on:'Synchronisé', off:'Hors ligne' }[state];
+    let label = { local:'Local', sync:'Synchronisation…', on:'Synchronisé', off:'Hors ligne' }[state];
+    const pend = pendingCount();
+    if (pend) label += ' · ' + pend + ' en attente';
+    label += ' · ' + BUILD;
     [$('#cloud-state'), $('#cloud-state-shop')].forEach(el => {
       if (!el) return;
       el.textContent = label;
@@ -1659,17 +1675,17 @@ tbody tr:hover{background:#F8FAFC}
     clearTimeout(pushTimer);
     pushTimer = setTimeout(push, 700);
   }
-  /* Vrai si un enregistrement local n'a pas encore été confirmé par la base (ou une suppression reste à envoyer). */
-  function hasPending() {
-    return Object.keys(COLLS).some(key => {
+  /* Nombre d'enregistrements locaux non confirmés par la base (ou suppressions à envoyer). */
+  function pendingCount() {
+    let n = 0;
+    Object.keys(COLLS).forEach(key => {
       const ids = {};
-      for (const rec of S[key]) {
-        ids[rec.id] = 1;
-        if (snapshot[key][rec.id] !== stable(rec)) return true;
-      }
-      return Object.keys(snapshot[key]).some(id => !ids[id]);
+      S[key].forEach(rec => { ids[rec.id] = 1; if (snapshot[key][rec.id] !== stable(rec)) n++; });
+      Object.keys(snapshot[key]).forEach(id => { if (!ids[id]) n++; });
     });
+    return n;
   }
+  function hasPending() { return pendingCount() > 0; }
 
   async function push() {
     if (!CLOUD.projectId) return;
@@ -1799,6 +1815,47 @@ tbody tr:hover{background:#F8FAFC}
       for (let i = 0; i < txt.length; i++) h = ((h << 5) + h + txt.charCodeAt(i)) | 0;
       return 'f' + (h >>> 0).toString(16);
     }
+  }
+
+  /* ---------- Comptes Firebase : boutiques et particuliers ----------
+     Le mot de passe n'est plus stocké dans la base : Firebase le garde.
+     Les comptes sans e-mail réel (particuliers) reçoivent une adresse
+     interne dérivée du téléphone ; elle n'est jamais affichée ni envoyée. */
+  const ACCOUNT_DOMAIN = 'livrapro.app';
+  function authMsg(code) {
+    code = String(code || '');
+    if (code.indexOf('EMAIL_EXISTS') === 0) return 'Un compte existe déjà avec cet identifiant.';
+    if (code.indexOf('INVALID_EMAIL') === 0) return 'Adresse e-mail invalide.';
+    if (code.indexOf('WEAK_PASSWORD') === 0) return 'Mot de passe trop court (6 caractères minimum).';
+    if (code.indexOf('TOO_MANY_ATTEMPTS') === 0) return 'Trop de tentatives. Réessayez plus tard.';
+    if (code.indexOf('OPERATION_NOT_ALLOWED') === 0) return 'Connexion par e-mail non activée dans Firebase.';
+    return 'Identifiant ou mot de passe incorrect.';
+  }
+  async function authPost(action, body) {
+    try {
+      const r = await fetchT('https://identitytoolkit.googleapis.com/v1/accounts:' + action + '?key=' + CLOUD.apiKey, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+      });
+      const j = await r.json();
+      return r.ok ? { ok: true, data: j } : { ok: false, msg: authMsg(j.error && j.error.message) };
+    } catch (e) { return { ok: false, msg: 'Connexion impossible. Vérifiez votre réseau.' }; }
+  }
+  /* Crée le compte sans changer la session de l'appareil. */
+  function createAccount(email, pass) {
+    return authPost('signUp', { email: email, password: pass, returnSecureToken: true });
+  }
+  /* Connecte l'appareil avec ce compte (ses écritures seront attribuées à lui). */
+  async function signInAccount(email, pass) {
+    const res = await authPost('signInWithPassword', { email: email, password: pass, returnSecureToken: true });
+    if (!res.ok) return res;
+    AUTH.token = res.data.idToken; AUTH.refresh = res.data.refreshToken;
+    AUTH.expires = Date.now() + (Number(res.data.expiresIn) || 3600) * 1000;
+    try { localStorage.setItem(AUTH_KEY, AUTH.refresh); } catch (e) {}
+    return { ok: true };
+  }
+  /* Envoie le lien de réinitialisation à l'adresse réelle du compte. */
+  function sendReset(email) {
+    return authPost('sendOobCode', { requestType: 'PASSWORD_RESET', email: email });
   }
 
   /* ---------- Retours d'interface ---------- */
@@ -2556,7 +2613,10 @@ tbody tr:hover{background:#F8FAFC}
     $('#client-address').value = c ? (c.address||'') : '';
     $('#client-code').value = c ? c.code : newShopCode();
     $('#client-pass').value = '';
-    $('#client-pass-note').textContent = c ? '(laisser vide pour ne pas le changer)' : '*';
+    $('#client-email').value = c ? (c.authEmail || '') : '';
+    $('#client-email').readOnly = !!(c && c.authEmail);
+    $('#client-email').closest('.form-group').hidden = !!(c && c.kind === 'particulier');
+    $('#client-pass-note').textContent = c ? (c.authEmail ? '(vide : pas de changement ; avec un mot de passe : lien envoyé à la boutique)' : '*') : '*';
     $('#client-pass').required = !c;
     openModal('#client-modal');
     setTimeout(() => $('#client-name').focus(), 50);
@@ -3249,7 +3309,7 @@ tbody tr:hover{background:#F8FAFC}
   const AGENCE_EMAIL = 'visionafriaca@gmail.com';
   async function agencySignIn(email, pass) {
     try {
-      const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + CLOUD.apiKey, {
+      const r = await fetchT('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + CLOUD.apiKey, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email, password: pass, returnSecureToken: true })
@@ -3534,22 +3594,47 @@ tbody tr:hover{background:#F8FAFC}
     $('#client-form').addEventListener('submit', async e => {
       e.preventDefault();
       const id = $('#client-id').value, pass = $('#client-pass').value;
-      if (!id && pass.length < 6) { toast('Donnez un mot de passe d\u2019au moins 6 caractères.', 'err'); return; }
-      if (id && pass && pass.length < 6) { toast('Le nouveau mot de passe doit faire 6 caractères au moins.', 'err'); return; }
+      const email = $('#client-email').value.trim().toLowerCase();
+      const c0 = id ? clientById(id) : null;
+      if (c0 && c0.kind === 'particulier') {                   /* un particulier n'a pas d'e-mail : fiche modifiable sans compte à créer */
+        if (pass) { toast('Le mot de passe d\u2019un particulier ne se change pas depuis l\u2019agence pour l\u2019instant.', 'err'); return; }
+        const data = { name: $('#client-name').value.trim(), contact: $('#client-contact').value.trim(),
+          phone: $('#client-phone').value.trim(), address: $('#client-address').value.trim(),
+          code: $('#client-code').value.trim().toUpperCase() };
+        Object.assign(c0, data); c0._v = Math.max(Date.now(), (c0._v || 0) + 1);
+        save(); renderAll(); closeModal($('#client-modal')); toast('Fiche particulier mise à jour', 'ok');
+        return;
+      }
+      const needsAccount = !c0 || !c0.authEmail;      /* nouvelle boutique, ou ancienne fiche sans compte */
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('Entrez une adresse e-mail valide pour la boutique.', 'err'); return; }
+      if (needsAccount && pass.length < 6) { toast('Donnez un mot de passe d’au moins 6 caractères.', 'err'); return; }
+      if (!needsAccount && email !== c0.authEmail) { toast('L’e-mail d’un compte existant ne se modifie pas ici.', 'err'); return; }
       const data = {
         name: $('#client-name').value.trim(), contact: $('#client-contact').value.trim(),
         phone: $('#client-phone').value.trim(), address: $('#client-address').value.trim(),
         code: $('#client-code').value.trim().toUpperCase()
       };
-      if (id) {
-        const c = clientById(id);
-        Object.assign(c, data);
-        if (pass) { c.hash = await hash(pass); c._v = Math.max(Date.now(), (c._v || 0) + 1); }
-        toast('Boutique mise à jour', 'ok');
-      } else {
-        data.id = uid(); data.createdAt = new Date().toISOString(); data.hash = await hash(pass);
+      if (!c0) {
+        const acc = await createAccount(email, pass);
+        if (!acc.ok) { toast(acc.msg, 'err'); return; }
+        data.id = uid(); data.createdAt = new Date().toISOString();
+        data.authEmail = email; data.authUid = acc.data.localId;
         S.clients.push(data);
         toast('Boutique ' + data.name + ' créée — code ' + data.code, 'ok');
+      } else {
+        if (needsAccount) {
+          const acc = await createAccount(email, pass);
+          if (!acc.ok) { toast(acc.msg, 'err'); return; }
+          c0.authEmail = email; c0.authUid = acc.data.localId; delete c0.hash;
+        } else if (pass) {
+          /* Le mot de passe ne se change pas à distance sans forfait : le lien part à la boutique. */
+          const r = await sendReset(c0.authEmail);
+          if (!r.ok) { toast(r.msg, 'err'); return; }
+          toast('Lien de réinitialisation envoyé à ' + c0.authEmail, 'ok');
+        }
+        Object.assign(c0, data);
+        c0._v = Math.max(Date.now(), (c0._v || 0) + 1);
+        if (!pass || needsAccount) toast('Boutique mise à jour', 'ok');
       }
       save(); renderAll(); closeModal($('#client-modal'));
     });
@@ -3575,8 +3660,12 @@ tbody tr:hover{background:#F8FAFC}
       err('Connexion…');
       await pull();
       const c = clientByTel($('#part-phone').value);
-      const h = await hash($('#part-pass').value);
-      if (!c || c.hash !== h) { err('Téléphone ou mot de passe incorrect.'); return; }
+      const pass = $('#part-pass').value;
+      if (!c) { err('Téléphone ou mot de passe incorrect.'); return; }
+      if (c.authEmail) {
+        const r = await signInAccount(c.authEmail, pass);
+        if (!r.ok) { err(r.msg); return; }
+      } else if (c.hash !== await hash(pass)) { err('Téléphone ou mot de passe incorrect.'); return; }
       ($('#part-remember').checked ? localStorage : sessionStorage).setItem(SHOP_SESSION, c.id);
       $('#part-pass').value = ''; err('');
       openShopSession(c);
@@ -3592,9 +3681,14 @@ tbody tr:hover{background:#F8FAFC}
       if (p1.length < 6) { err('Le mot de passe doit contenir au moins 6 caractères.'); return; }
       if (p1 !== p2) { err('Les deux mots de passe ne correspondent pas.'); return; }
       if (clientByTel(tel)) { err('Un compte existe déjà avec ce numéro. Connectez-vous.'); return; }
+      const digits = tel.replace(/\D/g, '');
+      const authEmail = 'p' + digits + '@' + ACCOUNT_DOMAIN;   /* adresse interne, jamais affichée */
+      const acc = await createAccount(authEmail, p1);
+      if (!acc.ok) { err(acc.msg); return; }
+      await signInAccount(authEmail, p1);
       const c = { id: uid(), kind: 'particulier', name: name, phone: tel,
-                  code: 'PART-' + tel.replace(/\D/g, ''), address: '',
-                  createdAt: new Date().toISOString(), hash: await hash(p1) };
+                  code: 'PART-' + digits, address: '',
+                  createdAt: new Date().toISOString(), authEmail: authEmail, authUid: acc.data.localId };
       S.clients.push(c); save();
       ($('#part-remember').checked ? localStorage : sessionStorage).setItem(SHOP_SESSION, c.id);
       e.target.reset(); err('');
@@ -3607,9 +3701,13 @@ tbody tr:hover{background:#F8FAFC}
     $('#shop-login-form').addEventListener('submit', async e => {
       e.preventDefault();
       const code = $('#shop-code').value.trim().toUpperCase();
-      const h = await hash($('#shop-pass').value);
+      const pass = $('#shop-pass').value;
       const c = S.clients.filter(x => String(x.code).toUpperCase() === code)[0];
-      if (!c || c.hash !== h) { $('#shop-login-error').textContent = 'Code boutique ou mot de passe incorrect.'; return; }
+      if (!c) { $('#shop-login-error').textContent = 'Code boutique ou mot de passe incorrect.'; return; }
+      if (c.authEmail) {
+        const r = await signInAccount(c.authEmail, pass);
+        if (!r.ok) { $('#shop-login-error').textContent = r.msg; return; }
+      } else if (c.hash !== await hash(pass)) { $('#shop-login-error').textContent = 'Code boutique ou mot de passe incorrect.'; return; }
       ($('#shop-remember').checked ? localStorage : sessionStorage).setItem(SHOP_SESSION, c.id);
       openShopSession(c);
       toast('Bienvenue, ' + c.name);
