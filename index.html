@@ -3665,7 +3665,19 @@ tbody tr:hover{background:#F8FAFC}
       if (c.authEmail) {
         const r = await signInAccount(c.authEmail, pass);
         if (!r.ok) { err(r.msg); return; }
-      } else if (c.hash !== await hash(pass)) { err('Téléphone ou mot de passe incorrect.'); return; }
+      } else {
+        /* Ancien compte : le mot de passe vient d'être vérifié, on le migre vers Firebase. */
+        if (c.hash !== await hash(pass)) { err('Téléphone ou mot de passe incorrect.'); return; }
+        const email = 'p' + normTel(c.phone).replace(/\D/g, '') + '@' + ACCOUNT_DOMAIN;
+        let acc = await createAccount(email, pass);
+        if (!acc.ok && acc.msg.indexOf('existe') !== -1) acc = { ok: true, data: {} };
+        if (!acc.ok) { err(acc.msg); return; }
+        const r = await signInAccount(email, pass);
+        if (!r.ok) { err(r.msg); return; }
+        c.authEmail = email; c.authUid = acc.data.localId || c.authUid || ''; delete c.hash;
+        c._v = Math.max(Date.now(), (c._v || 0) + 1);
+        save();
+      }
       ($('#part-remember').checked ? localStorage : sessionStorage).setItem(SHOP_SESSION, c.id);
       $('#part-pass').value = ''; err('');
       openShopSession(c);
