@@ -3597,7 +3597,15 @@ tbody tr:hover{background:#F8FAFC}
       const email = $('#client-email').value.trim().toLowerCase();
       const c0 = id ? clientById(id) : null;
       if (c0 && c0.kind === 'particulier') {                   /* un particulier n'a pas d'e-mail : fiche modifiable sans compte à créer */
-        if (pass) { toast('Le mot de passe d\u2019un particulier ne se change pas depuis l\u2019agence pour l\u2019instant.', 'err'); return; }
+        if (pass) {
+          /* Firebase ne permet pas de changer le mot de passe d'un autre compte sans forfait :
+             on crée un compte neuf avec le nouveau mot de passe et la fiche pointe dessus. */
+          if (pass.length < 6) { toast('Le mot de passe doit faire 6 caractères au moins.', 'err'); return; }
+          const newEmail = 'p' + c0.phone.replace(/\D/g, '') + '-' + Date.now().toString(36) + '@' + ACCOUNT_DOMAIN;
+          const acc = await createAccount(newEmail, pass);
+          if (!acc.ok) { toast(acc.msg, 'err'); return; }
+          c0.authEmail = newEmail; c0.authUid = acc.data.localId;
+        }
         const data = { name: $('#client-name').value.trim(), contact: $('#client-contact').value.trim(),
           phone: $('#client-phone').value.trim(), address: $('#client-address').value.trim(),
           code: $('#client-code').value.trim().toUpperCase() };
