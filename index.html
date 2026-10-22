@@ -1499,7 +1499,7 @@ tbody tr:hover{background:#F8FAFC}
      Le jeton vit une heure ; on le renouvelle avec le jeton de rafraîchissement,
      conservé sur l'appareil.
      ====================================================================== */
-  const BUILD = 'v2026-10-20b';
+  const BUILD = 'v2026-10-21a';
   const FETCH_TIMEOUT = 15000;
   /* Une requête sans réponse ne doit jamais bloquer l'envoi : au bout de 15 s elle échoue et l'appareil réessaie. */
   async function fetchT(url, o) {
@@ -1829,7 +1829,8 @@ tbody tr:hover{background:#F8FAFC}
     if (code.indexOf('WEAK_PASSWORD') === 0) return 'Mot de passe trop court (6 caractères minimum).';
     if (code.indexOf('TOO_MANY_ATTEMPTS') === 0) return 'Trop de tentatives. Réessayez plus tard.';
     if (code.indexOf('OPERATION_NOT_ALLOWED') === 0) return 'Connexion par e-mail non activée dans Firebase.';
-    return 'Identifiant ou mot de passe incorrect.';
+    if (/INVALID_PASSWORD|INVALID_LOGIN_CREDENTIALS|EMAIL_NOT_FOUND/.test(code)) return 'Identifiant ou mot de passe incorrect.';
+    return 'Erreur Firebase : ' + (code.split(' ')[0] || 'inconnue') + ' (signalez ce code à l\u2019équipe technique).';
   }
   async function authPost(action, body) {
     try {
@@ -3705,7 +3706,8 @@ tbody tr:hover{background:#F8FAFC}
       const authEmail = 'p' + digits + '@' + ACCOUNT_DOMAIN;   /* adresse interne, jamais affichée */
       const acc = await createAccount(authEmail, p1);
       if (!acc.ok) { err(acc.msg); return; }
-      await signInAccount(authEmail, p1);
+      const si = await signInAccount(authEmail, p1);
+      if (!si.ok) { err(si.msg); return; }
       const c = { id: uid(), kind: 'particulier', name: name, phone: tel,
                   code: 'PART-' + digits, address: '',
                   createdAt: new Date().toISOString(), authEmail: authEmail, authUid: acc.data.localId };
