@@ -954,6 +954,11 @@ tbody tr:hover{background:#F8FAFC}
                 <input type="text" id="ship-desc" placeholder="Ex : 1 sac, vêtements, 3 kg">
               </div>
               <div class="form-group full">
+                <label>Photo du colis (facultatif)</label>
+                <input type="file" id="ship-photo" accept="image/*" capture="environment">
+                <img id="ship-photo-prev" alt="" hidden style="max-width:140px;border-radius:10px;margin-top:8px">
+              </div>
+              <div class="form-group full">
                 <label>Qui règle les frais de livraison ?</label>
                 <div class="pay-choice">
                   <label class="pay-opt">
@@ -1499,7 +1504,7 @@ tbody tr:hover{background:#F8FAFC}
      Le jeton vit une heure ; on le renouvelle avec le jeton de rafraîchissement,
      conservé sur l'appareil.
      ====================================================================== */
-  const BUILD = 'v2026-10-21a';
+  const BUILD = 'v2026-10-22b';
   const FETCH_TIMEOUT = 15000;
   /* Une requête sans réponse ne doit jamais bloquer l'envoi : au bout de 15 s elle échoue et l'appareil réessaie. */
   async function fetchT(url, o) {
@@ -2551,6 +2556,21 @@ tbody tr:hover{background:#F8FAFC}
     else { img.removeAttribute('src'); img.hidden = true; ph.hidden = false; clr.hidden = true; }
   }
   /* Réduit et recadre en carré pour ne pas alourdir la base. */
+  function readFit(file, max, cb) {
+    const fr = new FileReader();
+    fr.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, max / Math.max(img.width, img.height));
+        const cv = document.createElement('canvas');
+        cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        cb(cv.toDataURL('image/jpeg', 0.7));
+      };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  }
   function readSquare(file, size, cb) {
     const fr = new FileReader();
     fr.onload = () => {
@@ -3657,7 +3677,9 @@ tbody tr:hover{background:#F8FAFC}
   const TARIF_PARTICULIER = { base: 0, km: 5000 };
   const normTel = t => String(t || '').replace(/[^0-9+]/g, '');
   const clientByTel = t => S.clients.filter(x => x.kind === 'particulier' && normTel(x.phone) === normTel(t))[0] || null;
-  const tarifShop = () => (shop && shop.kind === 'particulier') ? TARIF_PARTICULIER : undefined;
+  /* Les boutiques sont des partenaires : pas de frais de base, tarif kilométrique réduit. */
+  const TARIF_BOUTIQUE = { base: 0, km: 3000 };
+  const tarifShop = () => (shop && shop.kind === 'particulier') ? TARIF_PARTICULIER : TARIF_BOUTIQUE;
 
   function bindParticulier() {
     const err = msg => { $('#part-error').textContent = msg; };
@@ -3769,6 +3791,15 @@ tbody tr:hover{background:#F8FAFC}
         : 'Quartier non reconnu. L\u2019agence fixera les frais après appel.';
     });
 
+    let shipPhoto = null;
+    $('#ship-photo').addEventListener('change', e => {
+      const f = e.target.files[0]; if (!f) return;
+      readFit(f, 640, d => {
+        shipPhoto = d;
+        $('#ship-photo-prev').src = d; $('#ship-photo-prev').hidden = false;
+        toast('Photo ajoutée', 'ok');
+      });
+    });
     $('#ship-form').addEventListener('submit', e => {
       e.preventDefault();
       const pickup = $('#ship-pickup').value.trim() || shop.address || '';
@@ -3784,10 +3815,11 @@ tbody tr:hover{background:#F8FAFC}
         distance: est.ok ? est.km : null, duration: est.ok ? est.min : null,
         fee: est.ok ? est.fee : 0, cod: Math.round(Number($('#ship-cod').value) || 0),
         payment: pay, riderId: '', status: 'en_attente',
-        createdAt: now, updatedAt: now, history: [{ status:'en_attente', at:now }], photo: null
+        createdAt: now, updatedAt: now, history: [{ status:'en_attente', at:now }], photo: shipPhoto
       };
       S.orders.push(o); save(); renderShop();
       e.target.reset(); $('#ship-hint').hidden = true;
+      shipPhoto = null; $('#ship-photo-prev').hidden = true;
       $('#ship-done').innerHTML =
         '<div class="ref-out"><small>Demande enregistrée. Un livreur passe récupérer le colis.</small>' +
         '<span class="ref">' + esc(o.ref) + '</span>' +
