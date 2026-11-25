@@ -908,6 +908,7 @@ tbody tr:hover{background:#F8FAFC}
       <div class="client-tabs">
         <button class="tab-btn active" data-ptab="list">Mes expéditions</button>
         <button class="tab-btn" data-ptab="new">Nouvelle expédition</button>
+        <button class="tab-btn" data-ptab="moto" id="tab-moto" hidden>🏍️ Moto-taxi</button>
       </div>
 
       <div id="ptab-list">
@@ -925,6 +926,38 @@ tbody tr:hover{background:#F8FAFC}
           </div>
         </div>
         <div id="shop-orders"></div>
+      </div>
+
+      <div id="ptab-moto" hidden>
+        <div id="moto-done"></div>
+        <div class="panel">
+          <div class="panel-header"><h2>🏍️ Commander une moto-taxi</h2></div>
+          <form id="moto-form">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Point de départ (où vous êtes) *</label>
+                <input type="text" id="moto-from" required placeholder="Ex : Madina, marché" list="zones">
+              </div>
+              <div class="form-group">
+                <label>Destination *</label>
+                <input type="text" id="moto-to" required placeholder="Ex : Kipé, carrefour Constantin" list="zones">
+              </div>
+              <div class="form-group">
+                <label>Votre nom</label>
+                <input type="text" id="moto-name" placeholder="Votre nom">
+              </div>
+              <div class="form-group">
+                <label>Votre téléphone (le motard vous appelle)</label>
+                <input type="tel" id="moto-phone" placeholder="Ex : 620 00 00 00">
+              </div>
+              <p class="hint-line" id="moto-hint">Le prix est calculé à la distance : 5 000 GNF par kilomètre (minimum 5 000 GNF), payé en espèces au motard à l’arrivée.</p>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-ghost" id="moto-estimate">🧭 Voir le prix</button>
+              <button type="submit" class="btn btn-accent">Appeler un motard</button>
+            </div>
+          </form>
+        </div>
       </div>
 
       <div id="ptab-new" hidden>
@@ -1019,6 +1052,7 @@ tbody tr:hover{background:#F8FAFC}
         <img id="rider-portal-photo" alt="" hidden
              style="width:30px;height:30px;border-radius:8px;object-fit:cover">
         <b id="rider-portal-name">—</b>
+        <button class="btn btn-ghost btn-xs" id="rider-taxi" title="Recevoir aussi les demandes de moto-taxi">🏍️ Taxi</button>
         <button class="btn btn-ghost btn-xs" id="rider-pause">Pause</button>
         <button class="btn btn-ghost btn-xs" id="rider-quit">Quitter</button>
         <button class="btn btn-ghost btn-xs btn-switch" data-switch hidden>Changer de profil</button>
@@ -1465,6 +1499,9 @@ tbody tr:hover{background:#F8FAFC}
   let rider = null;         // livreur connecté dans son portail
   let riderPos = null;      // position du livreur [lat, lng] : reste sur son téléphone
   let pulledOnce = false;   // pas d'alerte avant la première synchronisation
+  const TARIF_MOTO = { base: 0, km: 5000, min: 5000 };   // moto-taxi : 5 000 GNF/km, course minimum 5 000
+  const isMoto = o => !!o && o.kind === 'moto';
+  const riderTaxi = () => !!rider && rider.taxi !== false;   // interrupteur du livreur (actif par défaut)
   const MAX_COURSES = 3;    // courses simultanées qu'un livreur peut accepter lui-même
   let riderToken = '';      // jeton lu dans le lien personnel
   let openShip = null;      // expédition dépliée dans le portail
@@ -2023,7 +2060,7 @@ tbody tr:hover{background:#F8FAFC}
       const next = FLOW[FLOW.indexOf(o.status)+1];
       const pay = o.payment === 'destinataire' ? 'Destinataire' : 'Expéditeur';
       return '<tr>' +
-        '<td><span class="ref">' + esc(o.ref) + '</span></td>' +
+        '<td><span class="ref">' + (isMoto(o) ? '🏍️ ' : '') + esc(o.ref) + '</span></td>' +
         '<td><div class="cell-main">' + esc(senderLabel(o)) + '</div>' +
           (o.origin === 'boutique' ? '<div class="cell-sub">via le portail</div>' : '') + '</td>' +
         '<td><div class="cell-main">' + esc(o.client) + '</div><div class="cell-sub">' + esc(o.phone) + '</div></td>' +
@@ -2126,7 +2163,7 @@ tbody tr:hover{background:#F8FAFC}
         '<div class="stop-time">' + fmtDate(o.updatedAt || o.createdAt) + '</div></div></div></div>';
     }
     const idx = FLOW.indexOf(o.status);
-    const labels = ['Enregistrée','Livreur assigné','En route','Livrée'];
+    const labels = isMoto(o) ? ['Demande envoyée','Motard trouvé','En route','Arrivé'] : ['Enregistrée','Livreur assigné','En route','Livrée'];
     const fill = idx <= 0 ? 0 : (idx/3)*75;
     const stops = labels.map((lab,i) => {
       const cls = i < idx ? 'done' : (i === idx ? 'now done' : '');
@@ -2220,7 +2257,7 @@ tbody tr:hover{background:#F8FAFC}
     $('#shop-orders').innerHTML = list.length ? list.map(o =>
       '<div class="ship-card">' +
         '<div class="ship-head" data-ship="' + o.id + '">' +
-          '<span class="ref">' + esc(o.ref) + '</span>' +
+          '<span class="ref">' + (isMoto(o) ? '🏍️ ' : '') + esc(o.ref) + '</span>' +
           '<span style="font-weight:700">' + esc(o.client) + '</span>' +
           '<span style="color:var(--txt-2);font-size:13px">' + esc(o.address) + '</span>' +
           '<span class="pill ' + o.status + '">' + ORDER_STATUS[o.status] + '</span>' +
@@ -2236,7 +2273,9 @@ tbody tr:hover{background:#F8FAFC}
               (o.cod ? '<div><div class="field-label">À vous reverser</div><div class="field-value">' + money(o.cod) + '</div></div>' : '') +
             '</div>' +
             '<div class="ship-actions">' +
-              '<button class="btn btn-ghost btn-sm" data-shiplink="' + o.id + '">🔗 Lien de suivi pour le destinataire</button>' +
+              (isMoto(o)
+                ? (o.status === 'en_attente' ? '<button class="btn btn-danger btn-sm" data-motocancel="' + o.id + '">Annuler la course</button>' : '')
+                : '<button class="btn btn-ghost btn-sm" data-shiplink="' + o.id + '">🔗 Lien de suivi pour le destinataire</button>') +
             '</div>' +
           '</div>' : '') +
       '</div>').join('')
@@ -2252,6 +2291,9 @@ tbody tr:hover{background:#F8FAFC}
     if ($('#part-login')) $('#part-login').hidden = true;
     $('#portal').hidden = false;
     $('#ship-pickup').placeholder = c.address || 'Votre boutique';
+    const isPart = c.kind === 'particulier';
+    $('#tab-moto').hidden = !isPart;
+    if (isPart) { $('#moto-name').value = c.name || ''; $('#moto-phone').value = c.phone || ''; }
     renderShop();
   }
 
@@ -2282,6 +2324,7 @@ tbody tr:hover{background:#F8FAFC}
   }
   function openAlert(o) {
     if (!pulledOnce || !inService()) return;
+    if (isMoto(o) && !riderTaxi()) return;
     const d = distanceKm(o);
     const txt = zoneLabel(o.pickup) + ' \u2192 ' + zoneLabel(o.address) + ' \u00b7 ' + money(o.fee) +
       (d !== null ? ' \u00b7 \u00e0 ' + String(d).replace('.', ',') + ' km' : '');
@@ -2294,6 +2337,18 @@ tbody tr:hover{background:#F8FAFC}
   function offerCard(o) {
     const d = distanceKm(o), cash = cashToCollect(o);
     const blocked = !inService() || myActive() >= MAX_COURSES;
+    if (isMoto(o)) {
+      return '<div class="offer" style="border-left-color:var(--blue)">' +
+        '<div class="offer-route"><span>🏍️ Moto-taxi</span><span class="arrow">·</span><span>' + esc(zoneLabel(o.pickup)) + '</span>' +
+          '<span class="arrow">\u2192</span><span>' + esc(zoneLabel(o.address)) + '</span></div>' +
+        '<div class="offer-meta">' +
+          (d !== null ? '<span>passager \u00e0 <b>' + String(d).replace('.', ',') + ' km</b> de vous</span>' : '') +
+          (o.distance ? '<span>trajet de ' + String(o.distance).replace('.', ',') + ' km</span>' : '') +
+          '<span>' + ago(o.createdAt) + '</span></div>' +
+        '<div class="offer-money"><span>Course ' + money(o.fee) + '</span><span class="cash">Pay\u00e9 en esp\u00e8ces \u00e0 l\u2019arriv\u00e9e</span></div>' +
+        '<button class="btn btn-accent" data-accept="' + o.id + '"' + (blocked ? ' disabled' : '') +
+          '>\u270B Accepter la course</button></div>';
+    }
     return '<div class="offer">' +
       '<div class="offer-route"><span>' + esc(zoneLabel(o.pickup)) + '</span>' +
         '<span class="arrow">\u2192</span><span>' + esc(zoneLabel(o.address)) + '</span></div>' +
@@ -2366,7 +2421,8 @@ tbody tr:hover{background:#F8FAFC}
       snapshot.orders[o.id] = stable(o);     // d\u00e9j\u00e0 \u00e9crit : pas de second envoi
       save2local();
       renderRiderPortal();
-      toast('Course ' + o.ref + ' accept\u00e9e. Allez la retirer chez ' + senderLabel(o) + '.', 'ok');
+      toast(isMoto(o) ? 'Course ' + o.ref + ' accept\u00e9e. Rejoignez le passager : ' + (o.pickup || '') + '.'
+        : 'Course ' + o.ref + ' accept\u00e9e. Allez la retirer chez ' + senderLabel(o) + '.', 'ok');
     } catch (e) {
       toast('Connexion impossible : la course n\u2019a pas pu \u00eatre r\u00e9serv\u00e9e. R\u00e9essayez.', 'err');
     } finally {
@@ -2396,6 +2452,27 @@ tbody tr:hover{background:#F8FAFC}
     const sender = clientById(o.senderId);
     const cash = cashToCollect(o);
     const tel = t => '<a class="btn btn-ghost btn-xs" href="tel:' + esc(String(t).replace(/\s/g,'')) + '">📞</a>';
+    if (isMoto(o)) {
+      return '<div class="job ' + cls + '">' +
+        '<div class="job-top"><span class="ref">' + esc(o.ref) + '</span>' +
+          '<span style="font-size:13px;color:var(--txt-2)">🏍️ Moto-taxi</span>' +
+          '<span class="pill ' + o.status + '">' + ORDER_STATUS[o.status] + '</span></div>' +
+        '<div class="job-leg"><span class="ico">🧍</span><div style="flex:1">' +
+          '<div class="lbl">Prendre le passager</div><div class="val">' + esc(o.client) + '</div>' +
+          '<div class="sub">' + esc(o.pickup || '') + '</div>' +
+          '<div class="sub">' + esc(o.phone) + ' ' + tel(o.phone) + '</div></div></div>' +
+        '<div class="job-leg"><span class="ico">📍</span><div style="flex:1">' +
+          '<div class="lbl">Déposer à</div><div class="val">' + esc(o.address) + '</div></div></div>' +
+        '<div class="job-cash"><span>À encaisser<small>course payée en espèces à l’arrivée</small></span><span>' + money(o.fee) + '</span></div>' +
+        (done ? '' :
+        '<div class="job-actions">' +
+          (o.status === 'assignee'
+            ? '<button class="btn btn-accent" data-job="' + o.id + '" data-to="en_cours">🏍️ Passager à bord</button>'
+            : '<button class="btn btn-accent" data-job="' + o.id + '" data-to="livree">✅ Course terminée</button>') +
+          '<a class="btn btn-ghost" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' +
+            encodeURIComponent((o.status === 'assignee' ? (o.pickup || '') : o.address) + ', Conakry') + '">🗺️ Itinéraire</a>' +
+        '</div>') + '</div>';
+    }
     return '<div class="job ' + cls + '">' +
       '<div class="job-top"><span class="ref">' + esc(o.ref) + '</span>' +
         '<span style="font-size:13px;color:var(--txt-2)">' + esc(o.description || 'Colis') + '</span>' +
@@ -2448,6 +2525,8 @@ tbody tr:hover{background:#F8FAFC}
     $('#rd-done').textContent = doneToday.length;
     $('#rd-cash').textContent = money(active.reduce((s, o) => s + cashToCollect(o), 0));
     $('#rider-pause').textContent = rider.status === 'en_pause' ? '▶ Reprendre' : '⏸ Pause';
+    const tx = $('#rider-taxi');
+    if (tx) tx.textContent = riderTaxi() ? '🏍️ Taxi : activé' : '🏍️ Taxi : désactivé';
 
     $('#rider-jobs').innerHTML = active.length ? active.map(jobCard).join('')
       : '<div class="panel"><div class="empty"><strong>Aucune course en attente</strong>Vous serez averti dès qu\u2019une livraison vous sera confiée.</div></div>';
@@ -2455,7 +2534,7 @@ tbody tr:hover{background:#F8FAFC}
       : '<div class="empty" style="padding:20px">Rien de terminé aujourd\u2019hui.</div>';
 
     /* Courses à prendre : les plus proches d'abord, sinon les plus anciennes. */
-    const open = S.orders.filter(isOpen).sort((a, b) => {
+    const open = S.orders.filter(o => isOpen(o) && (!isMoto(o) || riderTaxi())).sort((a, b) => {
       const da = distanceKm(a), db = distanceKm(b);
       if (da !== null && db !== null && da !== db) return da - db;
       if (da !== null && db === null) return -1;
@@ -3766,13 +3845,23 @@ tbody tr:hover{background:#F8FAFC}
 
     $$('[data-ptab]').forEach(b => b.addEventListener('click', () => {
       $$('[data-ptab]').forEach(x => x.classList.toggle('active', x === b));
-      const isList = b.dataset.ptab === 'list';
-      $('#ptab-list').hidden = !isList; $('#ptab-new').hidden = isList;
+      const t = b.dataset.ptab;
+      $('#ptab-list').hidden = t !== 'list'; $('#ptab-new').hidden = t !== 'new';
+      $('#ptab-moto').hidden = t !== 'moto';
     }));
     $('#shop-search').addEventListener('input', e => { filters.shop = e.target.value; renderShop(); });
     $('#shop-filter').addEventListener('change', e => { filters.shopStatus = e.target.value; renderShop(); });
 
     $('#shop-orders').addEventListener('click', e => {
+      const cancel = e.target.closest('[data-motocancel]');
+      if (cancel) {
+        const o = S.orders.filter(x => x.id === cancel.dataset.motocancel)[0];
+        if (!o || o.status !== 'en_attente') { toast('Un motard a déjà accepté : appelez-le pour annuler.', 'err'); renderShop(); return; }
+        if (!confirm('Annuler la course ' + o.ref + ' ?')) return;
+        o.status = 'annulee'; pushHistory(o, 'annulee'); save(); renderShop();
+        toast('Course annulée', 'ok');
+        return;
+      }
       const link = e.target.closest('[data-shiplink]');
       if (link) {
         const o = S.orders.filter(x => x.id === link.dataset.shiplink)[0];
@@ -3789,6 +3878,44 @@ tbody tr:hover{background:#F8FAFC}
       hint.textContent = est.ok
         ? 'Frais estimés : ' + money(est.fee) + ' pour environ ' + est.km + ' km (' + est.min + ' min). Le montant définitif est confirmé par l\u2019agence.'
         : 'Quartier non reconnu. L\u2019agence fixera les frais après appel.';
+    });
+
+    const motoQuote = () => {
+      const est = estimate($('#moto-from').value.trim(), $('#moto-to').value.trim(), TARIF_MOTO);
+      if (est.ok) est.fee = Math.max(TARIF_MOTO.min, est.fee);
+      return est;
+    };
+    $('#moto-estimate').addEventListener('click', () => {
+      const est = motoQuote();
+      const hint = $('#moto-hint');
+      hint.textContent = est.ok
+        ? 'Prix : ' + money(est.fee) + ' pour environ ' + est.km + ' km (' + est.min + ' min). Payé en espèces au motard à l\u2019arriv\u00e9e.'
+        : 'Quartier non reconnu. Utilisez un nom de quartier de Conakry (ex : Madina, Kipé, Kaloum).';
+    });
+    $('#moto-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const est = motoQuote();
+      if (!est.ok) { toast('Quartier non reconnu : choisissez un quartier de la liste pour calculer le prix.', 'err'); return; }
+      const open = S.orders.filter(o => o.senderId === shop.id && isMoto(o) && (o.status === 'en_attente' || o.status === 'assignee' || o.status === 'en_cours'));
+      if (open.length >= 2) { toast('Vous avez déjà 2 courses moto en cours.', 'err'); return; }
+      const now = new Date().toISOString();
+      const o = {
+        id: uid(), ref: newRef(), kind: 'moto', origin: 'boutique',
+        senderId: shop.id, senderName: shop.name,
+        client: $('#moto-name').value.trim() || shop.name, phone: $('#moto-phone').value.trim() || shop.phone,
+        address: $('#moto-to').value.trim(), pickup: $('#moto-from').value.trim(),
+        description: 'Moto-taxi', distance: est.km, duration: est.min, fee: est.fee, cod: 0,
+        payment: 'destinataire', riderId: '', status: 'en_attente',
+        createdAt: now, updatedAt: now, history: [{ status: 'en_attente', at: now }], photo: null
+      };
+      S.orders.push(o); save(); renderShop();
+      e.target.reset();
+      $('#moto-name').value = shop.name || ''; $('#moto-phone').value = shop.phone || '';
+      $('#moto-done').innerHTML =
+        '<div class="ref-out"><small>Demande envoyée. Le premier motard disponible va l’accepter.</small>' +
+        '<span class="ref">' + esc(o.ref) + '</span>' +
+        '<small>Suivez-la dans « Mes expéditions ».</small></div>';
+      toast('Motard demandé sous ' + o.ref, 'ok');
     });
 
     let shipPhoto = null;
@@ -3862,6 +3989,13 @@ tbody tr:hover{background:#F8FAFC}
       rider = null;
       $('#rider-portal').hidden = true; $('#rider-login').hidden = false;
       $('#rider-pin').value = ''; $('#rider-pin-error').textContent = '';
+    });
+    $('#rider-taxi').addEventListener('click', () => {
+      const r = riderById(rider.id); if (!r) return;
+      r.taxi = !(r.taxi !== false);
+      r._v = Math.max(Date.now(), (r._v || 0) + 1);
+      save(); renderRiderPortal();
+      toast(r.taxi ? 'Moto-taxi activé : vous recevez aussi les demandes de passagers' : 'Moto-taxi désactivé : livraisons de colis uniquement', 'ok');
     });
     $('#rider-pause').addEventListener('click', () => {
       const r = riderById(rider.id); if (!r) return;
