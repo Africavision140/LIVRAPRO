@@ -704,7 +704,7 @@ tbody tr:hover{background:#F8FAFC}
         </button>
         <button class="role-btn" data-role="taxi">
           <span class="role-ico">🏍️</span>
-          <span class="role-txt"><b>Taxi moto</b><span>Commander un motard, comme Uber</span></span>
+          <span class="role-txt"><b>Taxi moto</b><span>Appeler un motard, sans compte</span></span>
         </button>
         <button class="role-btn" data-role="livreur">
           <span class="role-ico">🛵</span>
@@ -719,6 +719,39 @@ tbody tr:hover{background:#F8FAFC}
       </p>
       <p class="login-hint">Vous cherchez seulement à suivre un colis ?
         <a href="s.html" style="color:var(--amber-d);font-weight:700">Suivre un colis</a></p>
+    </div>
+  </div>
+
+  <!-- ========== Taxi moto : sans compte ========== -->
+  <div id="taxi-screen" class="login-screen" hidden>
+    <div class="login-card" style="max-width:440px">
+      <div class="login-logo-img asset-logo" role="img" aria-label="LivraPro"></div>
+      <h2 class="login-title">🏍️ Taxi moto</h2>
+      <p class="login-sub">Appelez un motard à Conakry. Aucun compte à créer.</p>
+      <div id="taxi-current"></div>
+      <form id="taxi-form">
+        <div class="form-group">
+          <label>Votre nom</label>
+          <input type="text" id="taxi-name" placeholder="Ex : Mamadou" autocomplete="name" required>
+        </div>
+        <div class="form-group" style="margin-top:12px">
+          <label>Votre téléphone (le motard vous appelle)</label>
+          <input type="tel" id="taxi-phone" placeholder="Ex : 620 00 00 00" autocomplete="tel" required>
+        </div>
+        <div class="form-group" style="margin-top:12px">
+          <label>Où êtes-vous ? (point de départ)</label>
+          <input type="text" id="taxi-from" placeholder="Ex : Madina, marché" list="zones" required>
+        </div>
+        <div class="form-group" style="margin-top:12px">
+          <label>Où allez-vous ? (destination)</label>
+          <input type="text" id="taxi-to" placeholder="Ex : Kipé, carrefour Constantin" list="zones" required>
+        </div>
+        <p class="hint-line" id="taxi-hint" style="margin-top:12px">5 000 GNF par kilomètre (minimum 5 000 GNF), payé en espèces au motard à l’arrivée.</p>
+        <button type="button" class="btn btn-ghost login-btn" id="taxi-estimate" style="margin-top:12px">🧭 Voir le prix</button>
+        <button type="submit" class="btn btn-accent login-btn" style="margin-top:10px">Appeler un motard</button>
+      </form>
+      <p class="login-error" id="taxi-error"></p>
+      <p class="login-hint">Pour envoyer un colis : <a href="index.html?particulier" style="color:var(--amber-d);font-weight:700">espace particulier</a></p>
     </div>
   </div>
 
@@ -1449,7 +1482,8 @@ tbody tr:hover{background:#F8FAFC}
   const PARTICULIER = has('particulier');
   const TAXI = has('taxi');
   const MODE =
-      (has('app') || LOC.folder === 'app') ? 'app'
+      has('taxi') ? 'taxi'
+    : (has('app') || LOC.folder === 'app') ? 'app'
     : (has('agence') || has('admin')) ? 'agence'
     : (has('boutique') || has('client') || has('particulier') || LOC.folder === 'boutique') ? 'boutique'
     : (has('livreur') || LOC.folder === 'livreur') ? 'livreur'
@@ -2228,6 +2262,7 @@ tbody tr:hover{background:#F8FAFC}
     syncRiders();
     if (MODE === 'boutique') { renderShop(); return; }
     if (MODE === 'livreur') { renderRiderPortal(); return; }
+    if (MODE === 'taxi') { renderTaxi(); return; }
     if (MODE === 'suivi') return;
     renderDashboard(); renderOrders(); renderClients(); renderRiders(); renderTracking(); renderNotifs();
     if ($('#fee-currency')) {
@@ -3766,6 +3801,111 @@ tbody tr:hover{background:#F8FAFC}
   const TARIF_BOUTIQUE = { base: 0, km: 3000 };
   const tarifShop = () => (shop && shop.kind === 'particulier') ? TARIF_PARTICULIER : TARIF_BOUTIQUE;
 
+  /* ---------- Taxi moto sans compte ---------- */
+  const TAXI_KEY = 'livrapro.taxi', TAXI_ME = 'livrapro.taxi.me';
+  let taxiLast = '';
+  const taxiBusy = o => o.status === 'en_attente' || o.status === 'assignee' || o.status === 'en_cours';
+  function taxiCurrent() {
+    let id = ''; try { id = localStorage.getItem(TAXI_KEY) || ''; } catch (e) {}
+    return id ? (S.orders.filter(x => x.id === id)[0] || null) : null;
+  }
+  function taxiQuote(from, to) {
+    const est = estimate(from, to, TARIF_MOTO);
+    if (est.ok) est.fee = Math.max(TARIF_MOTO.min, est.fee);
+    return est;
+  }
+  function renderTaxi() {
+    const box = $('#taxi-current'); if (!box) return;
+    const o = taxiCurrent();
+    const form = $('#taxi-form');
+    if (!o) { box.innerHTML = ''; form.hidden = false; taxiLast = ''; return; }
+    form.hidden = true;
+    if (taxiLast && taxiLast !== o.status) {
+      beep();
+      toast(o.status === 'assignee' ? 'Un motard arrive vers vous' :
+            o.status === 'en_cours' ? 'En route, bon trajet' :
+            o.status === 'livree' ? 'Course terminée. Merci !' : 'Course mise à jour', 'ok');
+    }
+    taxiLast = o.status;
+    const r = riderById(o.riderId);
+    const done = !taxiBusy(o);
+    const msg = o.status === 'en_attente' ? 'Recherche d’un motard disponible…'
+      : o.status === 'assignee' ? 'Un motard a accepté et arrive vers vous.'
+      : o.status === 'en_cours' ? 'Vous êtes en route.'
+      : o.status === 'livree' ? 'Vous êtes arrivé. Réglez la course au motard.' : 'Course annulée.';
+    box.innerHTML =
+      '<div class="waybill" style="margin-bottom:14px"><div class="waybill-head">' +
+        '<span class="ref">' + esc(o.ref) + '</span><span class="pill ' + o.status + '">' + ORDER_STATUS[o.status] + '</span></div>' +
+      '<div class="waybill-body"><p style="font-weight:700;margin-bottom:10px">' + msg + '</p>' + routeHtml(o) +
+        '<div class="waybill-grid">' +
+          '<div><div class="field-label">Départ</div><div class="field-value">' + esc(o.pickup) + '</div></div>' +
+          '<div><div class="field-label">Destination</div><div class="field-value">' + esc(o.address) + '</div></div>' +
+          '<div><div class="field-label">Prix à payer</div><div class="field-value">' + money(o.fee) + '</div></div>' +
+          (r ? '<div><div class="field-label">Votre motard</div><div class="field-value wb-rider">' +
+                (r.photo ? '<img src="' + r.photo + '" alt="">' : '') + '<span>' + esc(r.name) + '</span></div>' +
+                '<div class="cell-sub">' + esc(r.vehicle || '') + (r.plate ? ' · ' + esc(r.plate) : '') + '</div></div>' : '') +
+        '</div>' +
+        '<div class="ship-actions">' +
+          (r && !done ? '<a class="btn btn-accent btn-sm" href="tel:' + esc(String(r.phone).replace(/\s/g, '')) + '">📞 Appeler le motard</a>' : '') +
+          (o.status === 'en_attente' ? '<button class="btn btn-danger btn-sm" data-taxicancel="' + o.id + '">Annuler</button>' : '') +
+          (done ? '<button class="btn btn-accent btn-sm" data-taxinew="1">Nouvelle course</button>' : '') +
+        '</div></div></div>';
+  }
+  function bindTaxi() {
+    const err = m => { $('#taxi-error').textContent = m || ''; };
+    try {
+      const me = JSON.parse(localStorage.getItem(TAXI_ME) || 'null');
+      if (me) { $('#taxi-name').value = me.name || ''; $('#taxi-phone').value = me.phone || ''; }
+    } catch (e) {}
+    $('#taxi-estimate').addEventListener('click', () => {
+      const est = taxiQuote($('#taxi-from').value.trim(), $('#taxi-to').value.trim());
+      $('#taxi-hint').textContent = est.ok
+        ? 'Prix : ' + money(est.fee) + ' pour environ ' + est.km + ' km (' + est.min + ' min). Payé en espèces au motard.'
+        : 'Quartier non reconnu : choisissez un quartier dans la liste (Madina, Kipé, Kaloum…).';
+    });
+    $('#taxi-form').addEventListener('submit', e => {
+      e.preventDefault(); err('');
+      const name = $('#taxi-name').value.trim(), phone = $('#taxi-phone').value.trim();
+      if (normTel(phone).replace(/\D/g, '').length < 8) { err('Numéro de téléphone invalide.'); return; }
+      const est = taxiQuote($('#taxi-from').value.trim(), $('#taxi-to').value.trim());
+      if (!est.ok) { err('Quartier non reconnu : choisissez un quartier dans la liste pour calculer le prix.'); return; }
+      try { localStorage.setItem(TAXI_ME, JSON.stringify({ name: name, phone: phone })); } catch (er) {}
+      const busy = S.orders.filter(x => isMoto(x) && x.guest && normTel(x.phone) === normTel(phone) && taxiBusy(x))[0];
+      if (busy) {
+        try { localStorage.setItem(TAXI_KEY, busy.id); } catch (er) {}
+        renderTaxi(); toast('Vous avez déjà une course en cours.', 'err'); return;
+      }
+      const now = new Date().toISOString();
+      const o = {
+        id: uid(), ref: newRef(), kind: 'moto', guest: true, origin: 'boutique',
+        senderId: '', senderName: name, client: name, phone: phone,
+        pickup: $('#taxi-from').value.trim(), address: $('#taxi-to').value.trim(),
+        description: 'Moto-taxi', distance: est.km, duration: est.min, fee: est.fee, cod: 0,
+        payment: 'destinataire', riderId: '', status: 'en_attente',
+        createdAt: now, updatedAt: now, history: [{ status: 'en_attente', at: now }], photo: null
+      };
+      S.orders.push(o);
+      try { localStorage.setItem(TAXI_KEY, o.id); } catch (er) {}
+      taxiLast = o.status;
+      save(); renderTaxi();
+      toast('Motard demandé sous ' + o.ref, 'ok');
+    });
+    $('#taxi-current').addEventListener('click', e => {
+      const c = e.target.closest('[data-taxicancel]');
+      if (c) {
+        const o = S.orders.filter(x => x.id === c.dataset.taxicancel)[0];
+        if (!o || o.status !== 'en_attente') { toast('Un motard a déjà accepté : appelez-le pour annuler.', 'err'); renderTaxi(); return; }
+        if (!confirm('Annuler la course ' + o.ref + ' ?')) return;
+        o.status = 'annulee'; pushHistory(o, 'annulee'); save(); renderTaxi();
+        return;
+      }
+      if (e.target.closest('[data-taxinew]')) {
+        try { localStorage.removeItem(TAXI_KEY); } catch (er) {}
+        taxiLast = ''; renderTaxi();
+      }
+    });
+  }
+
   function bindParticulier() {
     const err = msg => { $('#part-error').textContent = msg; };
     $('#part-tab-login').addEventListener('click', () => { $('#part-login-form').hidden = false; $('#part-reg-form').hidden = true; err(''); });
@@ -4042,8 +4182,8 @@ tbody tr:hover{background:#F8FAFC}
      ====================================================================== */
   const goRole = (role, remember) => {
     const base = role === 'taxi' ? 'particulier' : role;
-    if (remember) { try { localStorage.setItem(ROLE_KEY, base); } catch (e) {} }
-    location.replace('index.html?' + (role === 'taxi' ? 'particulier&taxi' : role));
+    if (remember && role !== 'taxi') { try { localStorage.setItem(ROLE_KEY, base); } catch (e) {} }
+    location.replace('index.html?' + role);
   };
 
   /* Accueil du site : on montre toujours les trois portes, sans rien mémoriser.
@@ -4255,6 +4395,19 @@ tbody tr:hover{background:#F8FAFC}
       if (found) $('#pub-query').value = found.ref;   // affiche la référence complète
       renderPublic($('#pub-query').value.trim());
       setInterval(async () => { await pull(); renderPublic($('#pub-query').value.trim()); }, 20000);
+      return;
+    }
+
+    if (MODE === 'taxi') {
+      document.body.classList.remove('locked');
+      $('.app').remove(); $('#login-screen').remove(); $('#shop-login').remove(); $('#part-login').remove();
+      $('#portal').remove(); $('#public').remove(); $('#rider-login').remove(); $('#rider-portal').remove(); $('#role-pick').remove();
+      $('#taxi-screen').hidden = false;
+      document.title = 'LivraPro — taxi moto';
+      bindTaxi();
+      await pull();
+      renderTaxi();
+      setInterval(() => pull(), 10000);
       return;
     }
 
